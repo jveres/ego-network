@@ -105,14 +105,6 @@ Six = "*"
 
 [[package]]
 category = "main"
-description = "Fast tools for functional programming"
-name = "functools"
-optional = false
-python-versions = "*"
-version = "0.5"
-
-[[package]]
-category = "main"
 description = "Internationalized Domain Names in Applications (IDNA)"
 name = "idna"
 optional = false
@@ -236,7 +228,7 @@ idna = ">=2.0"
 multidict = ">=4.0"
 
 [metadata]
-content-hash = "9055e9fb88affed988377edc1c4464529641e075b0d3d34fb68640ba25b238d3"
+content-hash = "9978347a286d0f23a5e1a0ee3bee1318fe4f35fefc56988b38a73dbc6a7f5661"
 python-versions = "^3.8"
 
 [metadata.files]
@@ -285,9 +277,6 @@ flask-caching = [
 flask-cors = [
     {file = "Flask-Cors-3.0.8.tar.gz", hash = "sha256:72170423eb4612f0847318afff8c247b38bd516b7737adfc10d1c2cdbb382d16"},
     {file = "Flask_Cors-3.0.8-py2.py3-none-any.whl", hash = "sha256:f4d97201660e6bbcff2d89d082b5b6d31abee04b1b3003ee073a6fd25ad1d69a"},
-]
-functools = [
-    {file = "functools-0.5.tar.gz", hash = "sha256:596ed8999dee419c0749a41bfdd82e4697e80ea27ee01c716003ef55be9a54c5"},
 ]
 idna = [
     {file = "idna-2.10-py2.py3-none-any.whl", hash = "sha256:b97d804b1e9b523befed77c48dacec60e6dcb0b5391d57af6a65a312a90648c0"},
