@@ -1,7 +1,8 @@
-# ego-ui
+# ego-network
 https://ego.jveres.me
 
-Besides creating an ego graph around a google 'vs ' autocomplete query, it includes some additional features as well:
+Flask app for creating an ego graph around a google 'vs ' autocomplete query.
+Includes some additional features as well:
 - caching
 - whitelisting
 
