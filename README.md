@@ -9,5 +9,5 @@ Includes some additional features as well:
 - whitelisting
 
 Todo:
-- replace recursion for more performance
+- replace recursion for better performance
 - ...
