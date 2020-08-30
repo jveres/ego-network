@@ -95,7 +95,7 @@ def timeit(func):
   return measure_time
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/s/*": {"origins": "*"}})
 app.config.from_mapping({"DEBUG": True, "CACHE_TYPE": "simple", "CACHE_DEFAULT_TIMEOUT": 3600})
 cache = Cache(app)
 
