@@ -30,6 +30,8 @@ def addNode(node, depth = 0):
   for i, n in enumerate(graph['nodes']):
     if (n[0] == node):
       n[1]['count'] += 1
+      if n[1]['depth'] > depth:
+        n[1]['depth'] = depth
       return i
   graph['nodes'].append((node, {'count': 1, 'depth': depth}))
 
@@ -60,6 +62,7 @@ def buildGraph(query, depth = 1):
     results = filterResults(googleSearch(query + PATTERN), query)
     for hit in results:
       addNode(hit, depth)
+    #print(depth, query, "->", results)
     for hitIdx, hit in enumerate(results):
       weight = LIMIT - hitIdx
       graph['edges'].append((query, hit, {'weight': weight, 'distance': MAXWEIGHT - weight, 'query': query + PATTERN + hit}))
