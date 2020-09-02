@@ -116,6 +116,7 @@ def result(query):
   resetGraph(query)
   addNode(query, 0)
   buildGraph(query)
-  return findSubGraphs(query)
+  val = findSubGraphs(query)
+  return val
 
 app.run(host="0.0.0.0")
