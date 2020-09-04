@@ -8,12 +8,14 @@ import urllib
 import re
 import time
 import functools
+import sys
+from replit import db
 
 WHITELIST = ["https://ego.jveres.me"]
 PATTERN = ' vs '
 LIMIT = 5
 MAXDEPTH = 4
-RADIUS = 25
+RADIUS = 28
 K = None
 
 graph = {'nodes': [], 'edges': []}
@@ -21,10 +23,24 @@ graph = {'nodes': [], 'edges': []}
 def resetGraph(query):
   graph['nodes'].clear()
   graph['edges'].clear()
+  addNode(query, 0)
 
 def googleSearch(query):
   url = f"http://suggestqueries.google.com/complete/search?&output=chrome&gl=us&hl=en&q={urllib.parse.quote(query)}"
-  return requests.request("GET", url).json()[1]
+  res = None
+  try:
+    res = db[query]
+  except:
+    #print("Error:", sys.exc_info()[0])
+    res = requests.request("GET", url).json()
+  finally:
+    if res != None:
+      try:
+        db[query] = res
+      finally:
+        return res[1]
+    else:
+      return []
 
 def addNode(node, depth = 0):
   for i, n in enumerate(graph['nodes']):
@@ -114,9 +130,8 @@ def check_url():
 @timeit
 def result(query):
   resetGraph(query)
-  addNode(query, 0)
   buildGraph(query)
-  val = findSubGraphs(query)
-  return val
+  ego_graph = findSubGraphs(query)
+  return ego_graph
 
 app.run(host="0.0.0.0")
