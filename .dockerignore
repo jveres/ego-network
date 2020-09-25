@@ -1,0 +1,7 @@
+.dockerignore
+.git
+.vscode
+index.html
+package-lock.json
+script.js
+style.css
