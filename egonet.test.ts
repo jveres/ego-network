@@ -1,3 +1,7 @@
+// Copyright 2010 Janos Veres. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 import {
   assertArrayContains,
   assertEquals,
@@ -5,7 +9,7 @@ import {
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 
 Deno.test({
-  name: "testing EgoGraph builder with",
+  name: "testing EgoGraph builder with 'okr'",
   async fn(): Promise<void> {
     const ego = new EgoGraph({ query: "okr", depth: 1, radius: 1 });
     await ego.build();

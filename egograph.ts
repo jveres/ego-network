@@ -1,3 +1,7 @@
+// Copyright 2010 Janos Veres. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
 import { createRequire } from "https://deno.land/std@0.71.0/node/module.ts";
 

@@ -1,3 +1,7 @@
+// Copyright 2010 Janos Veres. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 import {
   serve,
   ServerRequest,
@@ -9,7 +13,7 @@ const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") || "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const MAX_CACHE_CAPACITY = 500;
-const CACHE_EXPIRATION_MS = 60 * 60 * 1000;
+const CACHE_EXPIRATION_MS = 3 * 60 * 60 * 1000; // 3 hours
 const httpCache = new Map<string, Cache>();
 
 interface Cache {
