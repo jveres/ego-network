@@ -1,5 +1,3 @@
-# fly.toml file generated for broken-dust-3049 on 2020-09-22T09:38:37+02:00
-
 app = "egonet"
 
 [build]
