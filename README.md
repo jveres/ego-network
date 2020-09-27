@@ -7,7 +7,13 @@ Also includes:
 - whitelisting
 
 Install dependencies:
+
 `npm i ngraph.graph`
 
-Start with:
-`deno run --watch --allow-net=0.0.0.0,suggestqueries.google.com --unstable --allow-read --allow-env egonet.ts`
+Run test:
+
+`deno test --unstable --allow-read --allow-env --allow-net --coverage`
+
+Run server:
+
+`deno run --allow-net=0.0.0.0,suggestqueries.google.com --unstable --allow-read --allow-env egonet.ts`
