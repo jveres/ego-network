@@ -5,8 +5,8 @@ import {
 import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
 import { createRequire } from "https://deno.land/std@0.71.0/node/module.ts";
 
-const SERVER_HOST = '0.0.0.0';
-const SERVER_PORT = Deno.env.get('PORT') || '8080';
+const SERVER_HOST = "0.0.0.0";
+const SERVER_PORT = Deno.env.get("PORT") || "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const MAX_CACHE_CAPACITY = 500;
 const CACHE_EXPIRATION_MS = 60 * 60 * 1000;
@@ -278,7 +278,10 @@ console.log(`server is running at ${SERVER_HOST}:${SERVER_PORT}`);
     const origin = req.headers.get("origin");
     const host = req.headers.get("host");
     const params = new URLSearchParams(req.url.slice(1));
-    if (host !== `localhost:${SERVER_PORT}` && (!origin || ALLOWED_ORIGINS.indexOf(origin) === -1)) {
+    if (
+      host !== `localhost:${SERVER_PORT}` &&
+      (!origin || ALLOWED_ORIGINS.indexOf(origin) === -1)
+    ) {
       handleNotAcceptable(req); // not local dev and missing or not allowed origin
     } else if (req.method === "GET" && params.get("q")) {
       handleQuery(req, {
