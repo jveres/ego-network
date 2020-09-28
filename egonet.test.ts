@@ -1,8 +1,9 @@
-// Copyright 2010 Janos Veres. All rights reserved.
+// Copyright 2020 Janos Veres. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
 import {
+  assert,
   assertArrayContains,
   assertEquals,
 } from "https://deno.land/std@0.71.0/testing/asserts.ts";
@@ -22,5 +23,6 @@ Deno.test({
     assertEquals(graph.maxWeight, 1);
     assertEquals(graph.maxDistance, 1);
     assertEquals(graph.pattern, " vs ");
+    assert(graph.elapsedMs);
   },
 });
