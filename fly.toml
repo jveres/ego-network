@@ -1,9 +1,5 @@
 app = "egonet"
 
-[build]
-  builtin = "deno"
-
-
 [[services]]
   internal_port = 8080
   protocol = "tcp"
