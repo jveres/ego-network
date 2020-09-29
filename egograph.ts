@@ -4,9 +4,7 @@
 
 import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
 import { createRequire } from "https://deno.land/std@0.71.0/node/module.ts";
-
-const requireNpm = createRequire(import.meta.url);
-const createGraph = requireNpm("ngraph.graph");
+import createGraph from "https://dev.jspm.io/ngraph.graph";
 
 let fetchHeader = {}; // fixed Deno's HTTP_PROXY auth issue
 const httpProxy = Deno.env.get("HTTP_PROXY");

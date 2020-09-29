@@ -8,22 +8,27 @@ Also includes:
 - caching
 - whitelisting
 
-Install dependencies:
-
-```sh
-npm i ngraph.graph
-```
-
 Run test:
 
 ```sh
 deno test --unstable --allow-read --allow-env --allow-net --coverage
 ```
 
-Run server:
+Run dev server:
 
 ```sh
 deno run --allow-net=0.0.0.0,suggestqueries.google.com --unstable --allow-read --allow-env egonet.ts
+```
+
+Build and run prod server (uses `denopack`):
+```sh
+denopack -i egonet.ts -d dist
+deno run --allow-net=0.0.0.0,suggestqueries.google.com --allow-env egonet.js 
+```
+
+Deploy to fly.io:
+```sh
+flyctl deploy
 ```
 
 Sample `json` result:
