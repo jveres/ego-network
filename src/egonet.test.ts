@@ -16,6 +16,8 @@ Deno.test({
     await ego.build();
     const graph = ego.toJSON();
     //console.log(graph);
+    assert(graph.nodes);
+    assert(graph.links);
     assertArrayContains(graph.nodes, [{ id: "okr", count: 1, depth: 0 }]);
     assertEquals(graph.query, "okr");
     assertEquals(graph.depth, 1);
