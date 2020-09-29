@@ -8,7 +8,7 @@ Also includes:
 - caching
 - whitelisting
 
-Available `velociraptor` script:
+Available `🦖 Velociraptor` scripts:
 - `start` run development server
 - `test` run tests
 - `build` build production bundle, uses `denopack`
