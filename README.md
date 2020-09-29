@@ -23,7 +23,7 @@ deno run --allow-net=0.0.0.0,suggestqueries.google.com --unstable --allow-read -
 Build and run prod server (uses `denopack`):
 ```sh
 denopack -i egonet.ts -d dist
-deno run --allow-net=0.0.0.0,suggestqueries.google.com --allow-env egonet.js 
+deno run --allow-net=0.0.0.0,suggestqueries.google.com --allow-env dist/egonet.js 
 ```
 
 Deploy to fly.io:
