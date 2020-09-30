@@ -40,7 +40,7 @@ const handleQuery = async (
         cache ? "Refreshed in cache" : "Cached"
       } at ${httpCache.size}`,
     );
-    cache = { date: Date.now(), value: JSON.stringify(ego.toJSON()) };
+    cache = { date: Date.now(), value: JSON.stringify(ego.toObject()) };
     httpCache.set(options.query, cache);
     if (httpCache.size > MAX_CACHE_CAPACITY) {
       httpCache.delete(httpCache.keys().next().value); // rotate cache

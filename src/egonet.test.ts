@@ -14,8 +14,7 @@ Deno.test({
   async fn(): Promise<void> {
     const ego = new EgoGraph({ query: "okr", depth: 1, radius: 1 });
     await ego.build();
-    const graph = ego.toJSON();
-    //console.log(graph);
+    const graph = ego.toObject();
     assert(graph.nodes);
     assert(graph.links);
     assertArrayContains(graph.nodes, [{ id: "okr", count: 1, depth: 0 }]);

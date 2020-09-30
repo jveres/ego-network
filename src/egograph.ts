@@ -37,11 +37,17 @@ export class EgoGraph {
   private readonly depth: number;
   private readonly radius: number;
 
-  public graph: any;
+  public readonly graph: any;
 
   private elapsedMs: number = 0;
   private maxDistance: number = Number.NEGATIVE_INFINITY;
 
+  /**
+   * Creates a new EgoGraph instance.
+   * @constructor
+   * @param {EgoGraphOptions} options - Options for creating the ego network.
+   * @returns {EgoGraph}
+   */
   constructor(options: EgoGraphOptions = { query: "" }) {
     this.graph = (createGraph as () => any)();
     this.query = options.query;
@@ -50,7 +56,7 @@ export class EgoGraph {
     this.radius = options.radius || EgoGraph.DEFAULT_GRAPH_RADIUS;
   }
 
-  async fetchAutocomplete(
+  private async fetchAutocomplete(
     term: string,
     maxCount: number,
   ): Promise<Set<string>> {
@@ -66,8 +72,8 @@ export class EgoGraph {
       const set = new Set<string>();
       for (let hit of hits[1].slice(0, maxCount)) {
         hit.split(this.pattern).slice(1).map((t: string) => {
-          if (!new RegExp("^[0-9.]+$").test(t)) {
-            set.add(t); // filters
+          if (!new RegExp("^[0-9.]+$").test(t)) { // filters
+            set.add(t);
           }
         });
       }
@@ -77,6 +83,10 @@ export class EgoGraph {
     }
   }
 
+  /**
+   * Builds the graph.
+   * @returns {void}
+   */
   async build() {
     if (this.query === "") return;
     const t1 = performance.now();
@@ -149,7 +159,11 @@ export class EgoGraph {
     console.log(`build() took ${this.elapsedMs}ms`);
   }
 
-  toJSON() {
+  /**
+   * Creates final object representation of the graph. Should be called after build().
+   * @returns {object} {nodes: [...], links: [...], query, depth, radius, maxWeight, maxDistance, pattern, elapsedMs }
+   */
+  toObject() {
     let maxWeight = Number.NEGATIVE_INFINITY;
     this.graph.forEachLink((link: any) => {
       if (link.data.weight > maxWeight) maxWeight = link.data.weight;
