@@ -3,10 +3,9 @@
 // license that can be found in the LICENSE file.
 
 import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
-import { createRequire } from "https://deno.land/std@0.71.0/node/module.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
 
-let fetchHeader = {}; // fixed Deno's HTTP_PROXY auth issue
+let fetchHeader = {}; // fixes Deno's HTTP_PROXY auth issue
 const httpProxy = Deno.env.get("HTTP_PROXY");
 if (httpProxy) {
   const url = new URL(httpProxy);
@@ -46,7 +45,6 @@ export class EgoGraph {
    * Creates a new EgoGraph instance.
    * @constructor
    * @param {EgoGraphOptions} options - Options for creating the ego network.
-   * @returns {EgoGraph}
    */
   constructor(options: EgoGraphOptions = { query: "" }) {
     this.graph = (createGraph as () => any)();
@@ -161,7 +159,7 @@ export class EgoGraph {
 
   /**
    * Creates final object representation of the graph. Should be called after build().
-   * @returns {object} {nodes: [...], links: [...], query, depth, radius, maxWeight, maxDistance, pattern, elapsedMs }
+   * @returns {object} {nodes: [...], links: [...], query, depth, radius, maxWeight, maxDistance, pattern, elapsedMs}
    */
   toObject() {
     let maxWeight = Number.NEGATIVE_INFINITY;

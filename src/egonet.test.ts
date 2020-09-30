@@ -7,7 +7,7 @@ import {
   assertArrayContains,
   assertEquals,
 } from "https://deno.land/std@0.71.0/testing/asserts.ts";
-import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
+import { EgoGraph } from "./egograph.ts";
 
 Deno.test({
   name: "testing EgoGraph builder with 'okr'",
