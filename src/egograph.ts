@@ -37,13 +37,13 @@ export class EgoGraph {
   private readonly depth: number;
   private readonly radius: number;
 
-  public graph;
+  public graph: any;
 
   private elapsedMs: number = 0;
   private maxDistance: number = Number.NEGATIVE_INFINITY;
 
   constructor(options: EgoGraphOptions = { query: "" }) {
-    this.graph = createGraph();
+    this.graph = (createGraph as () => any)();
     this.query = options.query;
     this.depth = options.depth || EgoGraph.DEFAULT_GRAPH_DEPTH;
     this.pattern = options.pattern || EgoGraph.DEFAULT_SEARCH_PATTERN;
