@@ -1,5 +1,5 @@
 // Copyright 2020 Janos Veres. All rights reserved.
-// Use of this source code is governed by a BSD-style
+// Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
 import {
@@ -10,7 +10,7 @@ import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 
 const SERVER_HOST = "0.0.0.0";
-const SERVER_PORT = Deno.env.get("PORT") || "8080";
+const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const MAX_CACHE_CAPACITY = 500;
 const CACHE_EXPIRATION_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -29,7 +29,11 @@ const handleQuery = async (
   options: EgoGraphOptions,
 ): Promise<void> => {
   console.log(`${req.method} ${req.url}`);
-  let cache = httpCache.get(options.query);
+  const cacheKey = `${options.query}#${options.depth ??
+    EgoGraph.DEFAULT_GRAPH_DEPTH}#${options.pattern ??
+    EgoGraph.DEFAULT_SEARCH_PATTERN}#${options.radius ??
+    EgoGraph.DEFAULT_GRAPH_RADIUS}`;
+  let cache = httpCache.get(cacheKey);
   if (!(cache && (Date.now() - cache.date) < CACHE_EXPIRATION_MS)) { // not found in cache or expired
     const ego = new EgoGraph(
       { query: options.query, depth: options.depth, radius: options.radius },
@@ -41,7 +45,7 @@ const handleQuery = async (
       } at ${httpCache.size}`,
     );
     cache = { date: Date.now(), value: JSON.stringify(ego.toObject()) };
-    httpCache.set(options.query, cache);
+    httpCache.set(cacheKey, cache);
     if (httpCache.size > MAX_CACHE_CAPACITY) {
       httpCache.delete(httpCache.keys().next().value); // rotate cache
     }
@@ -111,9 +115,9 @@ console.log(`server is running at ${SERVER_HOST}:${SERVER_PORT}`);
       handleNotAcceptable(req); // not local dev and missing or not allowed origin
     } else if (req.method === "GET" && params.get("q")) {
       handleQuery(req, {
-        query: params.get("q") || "",
-        depth: Number(params.get("d")),
-        radius: Number(params.get("r")),
+        query: params.get("q") ?? "",
+        ...params.get("d") && { depth: Number(params.get("d")) },
+        ...params.get("r") && { radius: Number(params.get("r")) },
       })
         .catch(async ({ message }) => {
           try {

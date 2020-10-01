@@ -1,5 +1,5 @@
 // Copyright 2020 Janos Veres. All rights reserved.
-// Use of this source code is governed by a BSD-style
+// Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
 import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
@@ -49,9 +49,9 @@ export class EgoGraph {
   constructor(options: EgoGraphOptions = { query: "" }) {
     this.graph = (createGraph as () => any)();
     this.query = options.query;
-    this.depth = options.depth || EgoGraph.DEFAULT_GRAPH_DEPTH;
-    this.pattern = options.pattern || EgoGraph.DEFAULT_SEARCH_PATTERN;
-    this.radius = options.radius || EgoGraph.DEFAULT_GRAPH_RADIUS;
+    this.depth = options.depth ?? EgoGraph.DEFAULT_GRAPH_DEPTH;
+    this.pattern = options.pattern ?? EgoGraph.DEFAULT_SEARCH_PATTERN;
+    this.radius = options.radius ?? EgoGraph.DEFAULT_GRAPH_RADIUS;
   }
 
   private async fetchAutocomplete(
