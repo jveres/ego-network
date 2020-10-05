@@ -1,4 +1,4 @@
-FROM hayd/alpine-deno:1.4.2
+FROM jveres/alpine-deno:1.4.4
 EXPOSE 8080
 WORKDIR /app
 USER deno

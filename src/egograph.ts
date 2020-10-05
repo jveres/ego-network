@@ -2,7 +2,7 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
-import { Status } from "https://deno.land/std@0.71.0/http/http_status.ts";
+import { Status } from "https://deno.land/std@0.73.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
 
 let fetchHeader = {}; // fixes Deno's HTTP_PROXY auth issue

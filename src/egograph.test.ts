@@ -6,11 +6,11 @@ import {
   assert,
   assertArrayContains,
   assertEquals,
-} from "https://deno.land/std@0.71.0/testing/asserts.ts";
+} from "https://deno.land/std@0.73.0/testing/asserts.ts";
 import { EgoGraph } from "./egograph.ts";
 
 Deno.test({
-  name: "testing EgoGraph builder with 'okr'",
+  name: "testing EgoGraph builder with query='okr'",
   async fn(): Promise<void> {
     const ego = new EgoGraph({ query: "okr", depth: 1, radius: 1 });
     await ego.build();

@@ -1,6 +1,6 @@
 scripts:
   start: deno run --watch --allow-net=0.0.0.0,suggestqueries.google.com --unstable --allow-read --allow-env src/egonet.ts
-  test: deno test --unstable --allow-read --allow-env --allow-net src/egonet.test.ts
+  test: deno test --unstable --allow-read --allow-env --allow-net --coverage src/egograph.test.ts
   build: denopack -i src/egonet.ts -d dist
   dist-run: deno run --allow-net=0.0.0.0,suggestqueries.google.com --allow-env dist/egonet.js
   fly: flyctl deploy
