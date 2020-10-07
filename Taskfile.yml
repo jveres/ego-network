@@ -1,0 +1,24 @@
+# https://taskfile.dev
+
+version: '3'
+
+tasks:
+  start:
+    cmds:
+      - deno run --watch --allow-net=0.0.0.0,suggestqueries.google.com --unstable --allow-read --allow-env src/egonet.ts
+  test:
+    cmds:
+      - deno test --unstable --allow-read --allow-env --allow-net src/egograph.test.ts
+  build:
+    deps: [test]
+    cmds:
+      - denopack -i ./src/egonet.ts -d dist
+  run:
+    deps: [build]
+    cmds:
+      - deno run --allow-net=0.0.0.0,suggestqueries.google.com --allow-env dist/egonet.js
+  deploy:
+    deps: [build]
+    cmds:
+      - fly deploy
+  
