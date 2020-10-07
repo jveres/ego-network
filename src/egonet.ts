@@ -22,7 +22,6 @@ interface Cache {
 }
 
 const responseHeaders = new Headers();
-responseHeaders.set("Access-Control-Allow-Origin", "https://ego.jveres.me"); // enable CORS
 
 const handleQuery = async (
   req: ServerRequest,
@@ -106,11 +105,14 @@ console.log(`server is running at ${SERVER_HOST}:${SERVER_PORT}`);
 (async () => {
   for await (const req of server) {
     const origin = req.headers.get("origin");
+    if (origin && ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      responseHeaders.set("Access-Control-Allow-Origin", origin); // enable CORS
+    }
     const host = req.headers.get("host");
     const params = new URLSearchParams(req.url.slice(1));
     if (
       host !== `localhost:${SERVER_PORT}` &&
-      (!origin || ALLOWED_ORIGINS.indexOf(origin) === -1)
+      !responseHeaders.get("Access-Control-Allow-Origin")
     ) {
       handleNotAcceptable(req); // not local dev and missing or not allowed origin
     } else if (req.method === "GET" && params.get("q")) {
