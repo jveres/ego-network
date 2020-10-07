@@ -14,13 +14,13 @@ const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const MAX_CACHE_CAPACITY = 500;
 const CACHE_EXPIRATION_MS = 3 * 60 * 60 * 1000; // 3 hours
-const httpCache = new Map<string, Cache>();
 
 interface Cache {
   date: number;
   value: string;
 }
 
+const httpCache = new Map<string, Cache>();
 const responseHeaders = new Headers();
 
 const handleQuery = async (
