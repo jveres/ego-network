@@ -8,8 +8,8 @@ vars:
 
 tasks:
   default:
-    deps: [start]
-  start:
+    deps: [dev]
+  dev:
     cmds:
       - deno run --watch {{.DEV_ARGS}} src/egonet.ts
   test:
@@ -19,7 +19,7 @@ tasks:
     deps: [test]
     cmds:
       - denopack -i ./src/egonet.ts -d dist
-  run:
+  prod:
     deps: [build]
     cmds:
       - deno run {{.PROD_ARGS}} dist/egonet.js

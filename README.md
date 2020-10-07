@@ -5,15 +5,15 @@
 
 Deno app for creating an egograph of Google autocomplete results.
 Also includes:
-- caching
-- whitelisting
+- in-memory caching,
+- whitelisting.
 
-Available `🦖 Velociraptor` scripts:
-- `start` run development server
-- `test` run tests
+Available `go-task` scripts:
+- `dev` run development server (default)
+- `test` run unit tests
 - `build` build production bundle, uses `denopack`
-- `dist-run` run production server
-- `fly` deploy to fly.io
+- `prod` run production server
+- `deploy` deploy to fly.io
 
 Sample `json` result:
 ```json
