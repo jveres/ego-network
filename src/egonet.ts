@@ -5,8 +5,8 @@
 import {
   serve,
   ServerRequest,
-} from "https://deno.land/std@0.73.0/http/server.ts";
-import { Status } from "https://deno.land/std@0.73.0/http/http_status.ts";
+} from "https://deno.land/std@0.74.0/http/server.ts";
+import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 
 const SERVER_HOST = "0.0.0.0";
