@@ -11,6 +11,7 @@ import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
+const REDIS_URL = Deno.env.get("FLY_REDIS_CACHE_URL");
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const MAX_CACHE_CAPACITY = 500;
 const CACHE_EXPIRATION_MS = 3 * 60 * 60 * 1000; // 3 hours
@@ -100,7 +101,8 @@ const handleError = async (
 };
 
 const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
-console.log(`server is running at ${SERVER_HOST}:${SERVER_PORT}`);
+console.log(`Server is running at ${SERVER_HOST}:${SERVER_PORT}`);
+REDIS_URL && console.log(`Redis is accessible at: ${REDIS_URL}`);
 
 (async () => {
   for await (const req of server) {
