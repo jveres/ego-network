@@ -3,7 +3,7 @@
 version: "3"
 
 vars:
-  DEV_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-read --allow-env --unstable
+  DEV_ARGS: -A --unstable
   PROD_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-env
 
 tasks:

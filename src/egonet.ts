@@ -101,8 +101,8 @@ const handleError = async (
 };
 
 const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
-console.log(`Server is running at ${SERVER_HOST}:${SERVER_PORT}`);
-REDIS_URL && console.log(`Redis is accessible at ${REDIS_URL}`);
+console.info(`Server is running at ${SERVER_HOST}:${SERVER_PORT}`);
+REDIS_URL && console.warn(`Redis is accessible at ${REDIS_URL}`);
 
 (async () => {
   for await (const req of server) {

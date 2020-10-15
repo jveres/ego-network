@@ -5,14 +5,12 @@
 import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
 
-let fetchHeader = {}; // fixes Deno's HTTP_PROXY auth issue
+export const fetchHeader = { headers: {} }; // fixes Deno's HTTP_PROXY auth issue
 const httpProxy = Deno.env.get("HTTP_PROXY");
 if (httpProxy) {
   const url = new URL(httpProxy);
-  fetchHeader = {
-    headers: {
-      "Authorization": `Basic ${btoa(url.username + ":" + url.password)}`,
-    },
+  fetchHeader.headers = {
+    "Authorization": `Basic ${btoa(url.username + ":" + url.password)}`,
   };
   console.info(
     `Using HTTP_PROXY (origin="${url.origin}", Authorization="Basic ***...***")`,
@@ -166,7 +164,7 @@ export class EgoGraph {
     this.graph.forEachLink((link: any) => {
       if (link.data.weight > maxWeight) maxWeight = link.data.weight;
     });
-    const json = {
+    const obj = {
       nodes: [] as any,
       links: [] as any,
       query: this.query,
@@ -178,11 +176,11 @@ export class EgoGraph {
       elapsedMs: this.elapsedMs,
     };
     this.graph.forEachNode((node: any) => {
-      json.nodes.push({ id: node.id, ...node.data });
+      obj.nodes.push({ id: node.id, ...node.data });
     });
     this.graph.forEachLink((link: any) => {
-      json.links.push({ source: link.fromId, target: link.toId, ...link.data });
+      obj.links.push({ source: link.fromId, target: link.toId, ...link.data });
     });
-    return json;
+    return obj;
   }
 }

@@ -7,12 +7,45 @@ import {
   assertArrayContains,
   assertEquals,
 } from "https://deno.land/std@0.74.0/testing/asserts.ts";
-import { EgoGraph } from "./egograph.ts";
 
 Deno.test({
-  name: "testing EgoGraph builder with query='okr'",
+  name: "fetch with HTTP proxy",
   async fn(): Promise<void> {
-    const ego = new EgoGraph({ query: "okr", depth: 1, radius: 1 });
+    Deno.env.set("HTTP_PROXY", "http://username:password@www.proxy.com");
+    const mod = await import("./egograph.ts");
+    assertEquals(mod.fetchHeader, {
+      headers: {
+        Authorization: "Basic dXNlcm5hbWU6cGFzc3dvcmQ=",
+      },
+    });
+  },
+});
+
+Deno.test({
+  name: "EgoGraph builder, defaults",
+  async fn(): Promise<void> {
+    const mod = await import("./egograph.ts");
+    const ego = new mod.EgoGraph();
+    const graph = ego.toObject();
+    assertEquals(graph, {
+      depth: 1,
+      elapsedMs: 0,
+      links: [],
+      maxDistance: -Infinity,
+      maxWeight: -Infinity,
+      nodes: [],
+      pattern: " vs ",
+      query: "",
+      radius: 10,
+    });
+  },
+});
+
+Deno.test({
+  name: "EgoGraph: query='okr', radius=1",
+  async fn(): Promise<void> {
+    const mod = await import("./egograph.ts");
+    const ego = new mod.EgoGraph({ query: "okr", radius: 1 });
     await ego.build();
     const graph = ego.toObject();
     assert(graph.nodes);
@@ -23,6 +56,21 @@ Deno.test({
     assertEquals(graph.radius, 1);
     assertEquals(graph.maxWeight, 1);
     assertEquals(graph.maxDistance, 1);
+    assertEquals(graph.pattern, " vs ");
+    assert(graph.elapsedMs);
+  },
+});
+
+Deno.test({
+  name: "EgoGraph: query='devops', depth=2, radius=3",
+  async fn(): Promise<void> {
+    const mod = await import("./egograph.ts");
+    const ego = new mod.EgoGraph({ query: "devops", depth: 2, radius: 3 });
+    await ego.build();
+    const graph = ego.toObject();
+    assertEquals(graph.query, "devops");
+    assertEquals(graph.depth, 2);
+    assertEquals(graph.radius, 3);
     assertEquals(graph.pattern, " vs ");
     assert(graph.elapsedMs);
   },
