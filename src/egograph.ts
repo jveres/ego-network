@@ -4,6 +4,10 @@
 
 import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
+import { Timeout, Trace } from "https://deno.land/x/deco@0.1.1/mod.ts";
+
+const FETCH_TIMEOUT_MS = 1000;
+const BUILD_TIMEOUT_MS = 10000;
 
 export const fetchHeader = { headers: {} }; // fixes Deno's HTTP_PROXY auth issue
 const httpProxy = Deno.env.get("HTTP_PROXY");
@@ -52,6 +56,7 @@ export class EgoGraph {
     this.radius = options.radius ?? EgoGraph.DEFAULT_GRAPH_RADIUS;
   }
 
+  @Timeout(FETCH_TIMEOUT_MS)
   private async fetchAutocomplete(
     term: string,
     maxCount: number,
@@ -83,6 +88,8 @@ export class EgoGraph {
    * Builds the graph.
    * @returns {void}
    */
+  @Trace()
+  @Timeout(BUILD_TIMEOUT_MS)
   async build() {
     if (this.query === "") return;
     const t1 = performance.now();
@@ -152,7 +159,6 @@ export class EgoGraph {
     }
     this.graph.endUpdate();
     this.elapsedMs = performance.now() - t1;
-    console.log(`build() took ${this.elapsedMs}ms`);
   }
 
   /**

@@ -7,6 +7,7 @@ import {
   ServerRequest,
 } from "https://deno.land/std@0.74.0/http/server.ts";
 import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
+import * as Colors from "https://deno.land/std@0.74.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 
 const SERVER_HOST = "0.0.0.0";
@@ -28,7 +29,7 @@ const handleQuery = async (
   req: ServerRequest,
   options: EgoGraphOptions,
 ): Promise<void> => {
-  console.log(`${req.method} ${req.url}`);
+  console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
   const cacheKey = `${options.query}#${options.depth ??
     EgoGraph.DEFAULT_GRAPH_DEPTH}#${options.pattern ??
     EgoGraph.DEFAULT_SEARCH_PATTERN}#${options.radius ??
@@ -40,7 +41,7 @@ const handleQuery = async (
     );
     await ego.build();
     console.info(
-      `${req.method} ${req.url} ${
+      `${Colors.brightGreen(req.method)} ${Colors.bold(req.url)} ${
         cache ? "Refreshed in cache" : "Cached"
       } at ${httpCache.size}`,
     );
@@ -51,7 +52,11 @@ const handleQuery = async (
     }
     responseHeaders.set("fly-cache-status", "MISS");
   } else {
-    console.info(`${req.method} ${req.url} Found in cache`);
+    console.info(
+      `${Colors.brightGreen(req.method)} ${
+        Colors.bold(req.url)
+      } Found in cache`,
+    );
     responseHeaders.set("fly-cache-status", "HIT");
   }
   return req.respond({
@@ -64,7 +69,9 @@ const handleQuery = async (
 const handleNotAcceptable = async (
   req: ServerRequest,
 ): Promise<void> => {
-  console.error(`${req.method} ${req.url} Not acceptable`);
+  console.error(
+    `${req.method} ${req.url} ${Colors.brightYellow("Not acceptable")}`,
+  );
   return req.respond({
     status: Status.NotAcceptable,
     headers: responseHeaders,
@@ -75,7 +82,7 @@ const handleNotAcceptable = async (
 };
 
 const handleNotFound = async (req: ServerRequest): Promise<void> => {
-  console.warn(`${req.method} ${req.url} Not Found`);
+  console.warn(`${req.method} ${req.url} ${Colors.brightYellow("Not Found")}`);
   return req.respond({
     status: Status.NotFound,
     headers: responseHeaders,
@@ -89,20 +96,22 @@ const handleError = async (
   req: ServerRequest,
   message: string,
 ): Promise<void> => {
-  console.error(`${req.method} ${req.url} ${message}`);
+  console.error(`${req.method} ${req.url} ${Colors.brightRed(message)}`);
   return req.respond({
     status: Status.InternalServerError,
     headers: responseHeaders,
     body: JSON.stringify({
       message: "Internal server error",
-      error: message,
+      error: Colors.stripColor(message),
     }),
   });
 };
 
 const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
-console.info(`Server is running at ${SERVER_HOST}:${SERVER_PORT}`);
-REDIS_URL && console.warn(`Redis is accessible at ${REDIS_URL}`);
+console.info(
+  `${Colors.brightCyan("Server")} is running at ${Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))}`,
+);
+REDIS_URL && console.info(`${Colors.brightCyan("Redis")} is accessible at ${Colors.bold(Colors.underline((REDIS_URL)))}`);
 
 (async () => {
   for await (const req of server) {
