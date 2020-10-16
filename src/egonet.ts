@@ -109,9 +109,16 @@ const handleError = async (
 
 const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
 console.info(
-  `${Colors.brightCyan("Server")} is running at ${Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))}`,
+  `${Colors.brightCyan("Server")} is running at ${
+    Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))
+  }`,
 );
-REDIS_URL && console.info(`${Colors.brightCyan("Redis")} is accessible at ${Colors.bold(Colors.underline((REDIS_URL)))}`);
+REDIS_URL &&
+  console.info(
+    `${Colors.brightCyan("Redis")} is accessible at ${
+      Colors.bold(Colors.underline((REDIS_URL)))
+    }`,
+  );
 
 (async () => {
   for await (const req of server) {
