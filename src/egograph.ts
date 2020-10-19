@@ -4,7 +4,7 @@
 
 import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
-import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.2/mod.ts";
+import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.3/mod.ts";
 
 const FETCH_TIMEOUT_MS = 1000;
 const FETCH_MAX_ATTEMPTS = 3;
@@ -87,7 +87,7 @@ export class EgoGraph {
   }
 
   /**
-   * Builds the graph.
+   * Builds the ego network.
    * @returns {void}
    */
   @Trace()

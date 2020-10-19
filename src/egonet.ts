@@ -9,21 +9,16 @@ import {
 import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.74.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
+import { LruCache } from "https://deno.land/x/deco@0.3/mod.ts";
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const REDIS_URL = Deno.env.get("FLY_REDIS_CACHE_URL");
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
-const MAX_CACHE_CAPACITY = 500;
 const CACHE_EXPIRATION_MS = 3 * 60 * 60 * 1000; // 3 hours
 
-interface Cache {
-  date: number;
-  value: string;
-}
-
-const httpCache = new Map<string, Cache>();
 const responseHeaders = new Headers();
+const httpCache = new LruCache<any>();
 
 const handleQuery = async (
   req: ServerRequest,
@@ -43,13 +38,10 @@ const handleQuery = async (
     console.info(
       `${Colors.brightGreen(req.method)} ${Colors.bold(req.url)} ${
         cache ? "Refreshed in cache" : "Cached"
-      } at ${httpCache.size}`,
+      }`,
     );
     cache = { date: Date.now(), value: JSON.stringify(ego.toObject()) };
-    httpCache.set(cacheKey, cache);
-    if (httpCache.size > MAX_CACHE_CAPACITY) {
-      httpCache.delete(httpCache.keys().next().value); // rotate cache
-    }
+    httpCache.put(cacheKey, cache);
     responseHeaders.set("fly-cache-status", "MISS");
   } else {
     console.info(
