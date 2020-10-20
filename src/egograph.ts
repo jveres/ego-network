@@ -167,7 +167,7 @@ export class EgoGraph {
    * Creates final object representation of the graph. Should be called after build().
    * @returns {object} {nodes: [...], links: [...], query, depth, radius, maxWeight, maxDistance, pattern, elapsedMs}
    */
-  toObject() {
+  toObject(): { [index: string]: any } {
     let maxWeight = Number.NEGATIVE_INFINITY;
     this.graph.forEachLink((link: any) => {
       if (link.data.weight > maxWeight) maxWeight = link.data.weight;

@@ -15,6 +15,11 @@ Available `go-task` scripts:
 - `prod` run production server
 - `deploy` deploy to fly.io
 
+Local testing with `cURL`:
+```sh
+curl -sX GET "http://localhost:8080/?q=javascript" | json_pp
+```
+
 Sample `json` result:
 ```json
 {
