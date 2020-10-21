@@ -2,6 +2,8 @@
 // Use of this source code is governed by an MIT-style
 // license that can be found in the LICENSE file.
 
+// deno-lint-ignore-file no-explicit-any
+
 import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
 import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.3/mod.ts";
@@ -41,8 +43,8 @@ export class EgoGraph {
 
   public readonly graph: any;
 
-  private elapsedMs: number = 0;
-  private maxDistance: number = Number.NEGATIVE_INFINITY;
+  private elapsedMs = 0;
+  private maxDistance = Number.NEGATIVE_INFINITY;
 
   /**
    * Creates a new EgoGraph instance.
@@ -73,7 +75,7 @@ export class EgoGraph {
     if (res.status === Status.OK) {
       const hits = await res.json();
       const set = new Set<string>();
-      for (let hit of hits[1].slice(0, maxCount)) {
+      for (const hit of hits[1].slice(0, maxCount)) {
         hit.split(this.pattern).slice(1).map((t: string) => {
           if (!new RegExp("^[0-9.]+$").test(t)) { // filters
             set.add(t);
@@ -99,8 +101,8 @@ export class EgoGraph {
     let sources: string[] = [this.query];
     let distances: number[] = [0];
     for (let depth = 0; depth < this.depth; depth++) {
-      let nextSources: string[] = [];
-      let nextDistances: number[] = [];
+      const nextSources: string[] = [];
+      const nextDistances: number[] = [];
       for (let i = 0; i < sources.length; i++) {
         const srcDistance = distances[i];
         if (srcDistance >= this.radius) continue;

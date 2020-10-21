@@ -5,6 +5,7 @@ version: "3"
 vars:
   DEV_ARGS: -c tsconfig.json -A --unstable
   PROD_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-env
+  GIT_BRANCH: master
 
 tasks:
   default:
@@ -15,8 +16,12 @@ tasks:
   test:
     cmds:
       - deno test {{.DEV_ARGS}} src/egograph.test.ts
+  lint:
+    cmds:
+      - deno lint --unstable ./src
+      - deno fmt --check ./src 
   build:
-    deps: [test]
+    deps: [lint, test]
     cmds:
       - denopack -i ./src/egonet.ts -d dist
   prod:
@@ -27,3 +32,9 @@ tasks:
     deps: [build]
     cmds:
       - fly deploy
+  push:
+    deps: [build]
+    cmds:
+      - git add .
+      - read commitMessage && git commit -m "$commitMessage"
+      - git push origin {{.GIT_BRANCH}}
