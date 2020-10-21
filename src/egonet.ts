@@ -18,8 +18,6 @@ const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 class EgoNet {
-  private readonly responseHeaders = new Headers();
-
   constructor() {
     REDIS_URL && console.info(
       `${Colors.brightCyan("Redis")} is accessible at ${
@@ -45,60 +43,68 @@ class EgoNet {
       );
     },
   })
-  async graph(options: EgoGraphOptions): Promise<string> {
+  async graph(options: EgoGraphOptions, headers: Headers): Promise<string> {
     const ego = new EgoGraph(
       { query: options.query, depth: options.depth, radius: options.radius },
     );
     await ego.build();
-    this.responseHeaders.set("fly-cache-status", "MISS");
+    headers.set("fly-cache-status", "MISS");
     return JSON.stringify(ego.toObject());
   }
 
   async handleQuery(
     req: ServerRequest,
     options: EgoGraphOptions,
+    headers: Headers,
   ): Promise<void> {
     console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
-    this.responseHeaders.set("fly-cache-status", "HIT");
-    const graph: string = await this.graph(options);
+    headers.set("fly-cache-status", "HIT");
+    const graph: string = await this.graph(options, headers);
     return req.respond({
       status: Status.OK,
-      headers: this.responseHeaders,
+      headers,
       body: graph,
     });
   }
 
-  async handleNotAcceptable(req: ServerRequest): Promise<void> {
+  async handleNotAcceptable(
+    req: ServerRequest,
+    headers: Headers,
+  ): Promise<void> {
     console.error(
       `${req.method} ${req.url} ${Colors.brightYellow("Not acceptable")}`,
     );
     return req.respond({
       status: Status.NotAcceptable,
-      headers: this.responseHeaders,
+      headers,
       body: JSON.stringify({
-        message: "Not acceptable",
+        message: "Not Acceptable",
       }),
     });
   }
 
-  async handleNotFound(req: ServerRequest): Promise<void> {
+  async handleNotFound(req: ServerRequest, headers: Headers): Promise<void> {
     console.warn(
       `${req.method} ${req.url} ${Colors.brightYellow("Not Found")}`,
     );
     return req.respond({
       status: Status.NotFound,
-      headers: this.responseHeaders,
+      headers,
       body: JSON.stringify({
-        message: "Request not found",
+        message: "Request Not Found",
       }),
     });
   }
 
-  async handleError(req: ServerRequest, message: string): Promise<void> {
+  async handleError(
+    req: ServerRequest,
+    message: string,
+    headers: Headers,
+  ): Promise<void> {
     console.error(`${req.method} ${req.url} ${Colors.brightRed(message)}`);
     return req.respond({
       status: Status.InternalServerError,
-      headers: this.responseHeaders,
+      headers,
       body: JSON.stringify({
         message: "Internal server error",
         error: Colors.stripColor(message),
@@ -115,31 +121,32 @@ class EgoNet {
     );
     for await (const req of server) {
       const origin = req.headers.get("origin");
-      if (origin && ALLOWED_ORIGINS.indexOf(origin) !== -1) {
-        this.responseHeaders.set("Access-Control-Allow-Origin", origin); // enable CORS
+      const headers = new Headers();
+      if (origin !== null && ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+        headers.set("Access-Control-Allow-Origin", origin); // enable CORS
       }
       const host = req.headers.get("host");
       const params = new URLSearchParams(req.url.slice(1));
       if (
         host !== `localhost:${SERVER_PORT}` &&
-        !this.responseHeaders.get("Access-Control-Allow-Origin")
+        !headers.get("Access-Control-Allow-Origin")
       ) {
-        this.handleNotAcceptable(req); // not local dev and missing or not allowed origin
+        this.handleNotAcceptable(req, headers); // not local dev and missing or not allowed origin
       } else if (req.method === "GET" && params.get("q")) {
         this.handleQuery(req, {
           query: params.get("q") ?? "",
           ...params.get("d") && { depth: Number(params.get("d")) },
           ...params.get("r") && { radius: Number(params.get("r")) },
-        })
+        }, headers)
           .catch(async ({ message }) => {
             try {
-              await this.handleError(req, message);
+              await this.handleError(req, message, headers);
             } catch (err) {
               console.error(err); // Issue with broken pipe (os error 32)
             }
           });
       } else {
-        this.handleNotFound(req);
+        this.handleNotFound(req, headers);
       }
     }
   }
