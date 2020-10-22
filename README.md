@@ -14,6 +14,7 @@ Available `go-task` scripts:
 - `build` build production bundle, uses `denopack`
 - `prod` run production server
 - `deploy` deploy to fly.io
+- `push` git push to `master` branch
 
 Local testing with `cURL`:
 ```sh
