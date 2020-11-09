@@ -4,8 +4,9 @@ version: "3"
 
 vars:
   DEV_ARGS: -c tsconfig.json -A --unstable
-  PROD_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-env
+  PROD_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-env --no-check
   GIT_BRANCH: master
+  PORT: 8080
 
 tasks:
   default:
@@ -24,6 +25,10 @@ tasks:
     deps: [lint, test]
     cmds:
       - denopack -i ./src/egonet.ts -d dist
+    sources:
+      - ./src/*.ts
+    generates:
+      - ./dist/egonet.js
   prod:
     deps: [build]
     cmds:
@@ -38,3 +43,17 @@ tasks:
       - git add .
       - read commitMessage && git commit -m "$commitMessage"
       - git push origin {{.GIT_BRANCH}}
+  docker-build:
+    deps: [build]
+    cmds:
+      - docker build -t egonet .
+  docker-run:
+    deps: [docker-build]
+    cmds:
+      - docker run -it --rm -p{{.PORT}}:{{.PORT}} egonet
+  docker-kill:
+    cmds:
+      - docker kill $(docker ps | grep "egonet" | awk '{ print $1 }')
+  curl-test:
+    cmds:
+      - curl -sX GET "http://localhost:{{.PORT}}/?q=apple" | json_pp

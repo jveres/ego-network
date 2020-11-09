@@ -3,17 +3,18 @@
 // license that can be found in the LICENSE file.
 
 import {
-  assert,
-  assertArrayContains,
+  assertArrayIncludes,
   assertEquals,
-} from "https://deno.land/std@0.74.0/testing/asserts.ts";
+  assertExists,
+  assertObjectMatch,
+} from "https://deno.land/std@0.77.0/testing/asserts.ts";
 
 Deno.test({
   name: "fetch with HTTP proxy",
   async fn(): Promise<void> {
     Deno.env.set("HTTP_PROXY", "http://username:password@www.proxy.com");
     const mod = await import("./egograph.ts");
-    assertEquals(mod.fetchHeader, {
+    assertObjectMatch(mod.fetchHeader, {
       headers: {
         Authorization: "Basic dXNlcm5hbWU6cGFzc3dvcmQ=",
       },
@@ -48,16 +49,16 @@ Deno.test({
     const ego = new mod.EgoGraph({ query: "okr", radius: 1 });
     await ego.build();
     const graph = ego.toObject();
-    assert(graph.nodes);
-    assert(graph.links);
-    assertArrayContains(graph.nodes, [{ id: "okr", count: 1, depth: 0 }]);
+    assertExists(graph.nodes);
+    assertExists(graph.links);
+    assertArrayIncludes(graph.nodes, [{ id: "okr", count: 1, depth: 0 }]);
     assertEquals(graph.query, "okr");
     assertEquals(graph.depth, 1);
     assertEquals(graph.radius, 1);
     assertEquals(graph.maxWeight, 1);
     assertEquals(graph.maxDistance, 1);
     assertEquals(graph.pattern, " vs ");
-    assert(graph.elapsedMs);
+    assertExists(graph.elapsedMs);
   },
 });
 
@@ -72,6 +73,6 @@ Deno.test({
     assertEquals(graph.depth, 2);
     assertEquals(graph.radius, 3);
     assertEquals(graph.pattern, " vs ");
-    assert(graph.elapsedMs);
+    assertExists(graph.elapsedMs);
   },
 });

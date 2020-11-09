@@ -5,9 +5,9 @@
 import {
   serve,
   ServerRequest,
-} from "https://deno.land/std@0.74.0/http/server.ts";
-import { Status } from "https://deno.land/std@0.74.0/http/http_status.ts";
-import * as Colors from "https://deno.land/std@0.74.0/fmt/colors.ts";
+} from "https://deno.land/std@0.77.0/http/server.ts";
+import { Status } from "https://deno.land/std@0.77.0/http/http_status.ts";
+import * as Colors from "https://deno.land/std@0.77.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 import { Memoize } from "https://deno.land/x/deco@0.3.1/mod.ts";
 
