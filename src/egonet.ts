@@ -5,16 +5,18 @@
 import {
   serve,
   ServerRequest,
-} from "https://deno.land/std@0.77.0/http/server.ts";
-import { Status } from "https://deno.land/std@0.77.0/http/http_status.ts";
-import * as Colors from "https://deno.land/std@0.77.0/fmt/colors.ts";
+} from "https://deno.land/std@0.79.0/http/server.ts";
+import { Status } from "https://deno.land/std@0.79.0/http/http_status.ts";
+import * as Colors from "https://deno.land/std@0.79.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 import { Memoize } from "https://deno.land/x/deco@0.3.1/mod.ts";
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const REDIS_URL = Deno.env.get("FLY_REDIS_CACHE_URL");
-const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
+const ALLOWED_ORIGINS = [
+  "https://ego.jveres.me",
+];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 
 class EgoNet {
@@ -67,7 +69,7 @@ class EgoNet {
     });
   }
 
-  async handleNotAcceptable(
+  handleNotAcceptable(
     req: ServerRequest,
     headers: Headers,
   ): Promise<void> {
@@ -83,7 +85,7 @@ class EgoNet {
     });
   }
 
-  async handleNotFound(req: ServerRequest, headers: Headers): Promise<void> {
+  handleNotFound(req: ServerRequest, headers: Headers): Promise<void> {
     console.warn(
       `${req.method} ${req.url} ${Colors.brightYellow("Not Found")}`,
     );
@@ -96,7 +98,7 @@ class EgoNet {
     });
   }
 
-  async handleError(
+  handleError(
     req: ServerRequest,
     message: string,
     headers: Headers,
@@ -118,6 +120,11 @@ class EgoNet {
       `${Colors.brightCyan("Server")} is running at ${
         Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))
       }`,
+    );
+    console.info(
+      `Deno: ${Colors.brightGreen(Deno.version.deno)} · V8: ${
+        Colors.brightGreen(Deno.version.v8)
+      } · TypeScript: ${Colors.brightGreen(Deno.version.typescript)}`,
     );
     for await (const req of server) {
       const origin = req.headers.get("origin");

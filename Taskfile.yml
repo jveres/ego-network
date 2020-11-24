@@ -3,7 +3,7 @@
 version: "3"
 
 vars:
-  DEV_ARGS: -c tsconfig.json -A --unstable
+  DEV_ARGS: -A --unstable
   PROD_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-env --no-check
   GIT_BRANCH: master
   PORT: 8080
@@ -24,7 +24,9 @@ tasks:
   build:
     deps: [lint, test]
     cmds:
-      - denopack -i ./src/egonet.ts -d dist
+      - deno bundle src/egonet.ts dist/egonet.js
+      - esbuild --minify < dist/egonet.js > dist/egonet.min.js
+      - mv dist/egonet.min.js dist/egonet.js
     sources:
       - ./src/*.ts
     generates:
