@@ -11,7 +11,7 @@ Also includes:
 Available `go-task` scripts:
 - `dev` run development server (default)
 - `test` run unit tests
-- `build` build production bundle, uses `esbuild` form minification
+- `build` build production bundle, uses `terser` form minification
 - `prod` run production server
 - `deploy` deploy to fly.io
 - `push` git push to `master` branch

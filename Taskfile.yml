@@ -25,7 +25,7 @@ tasks:
     deps: [lint, test]
     cmds:
       - deno bundle src/egonet.ts dist/egonet.js
-      - esbuild --minify < dist/egonet.js > dist/egonet.min.js
+      - terser --compress --mangle --output dist/egonet.min.js -- dist/egonet.js
       - mv dist/egonet.min.js dist/egonet.js
     sources:
       - ./src/*.ts

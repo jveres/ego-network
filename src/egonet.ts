@@ -9,7 +9,7 @@ import {
 import { Status } from "https://deno.land/std@0.79.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.79.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
-import { Memoize } from "https://deno.land/x/deco@0.3.1/mod.ts";
+import { Memoize, RateLimit } from "https://deno.land/x/deco@0.4/mod.ts";
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
@@ -50,17 +50,16 @@ class EgoNet {
       { query: options.query, depth: options.depth, radius: options.radius },
     );
     await ego.build();
-    headers.set("fly-cache-status", "MISS");
     return JSON.stringify(ego.toObject());
   }
 
+  @RateLimit({ rps: 10 })
   async handleQuery(
     req: ServerRequest,
     options: EgoGraphOptions,
     headers: Headers,
   ): Promise<void> {
     console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
-    headers.set("fly-cache-status", "HIT");
     const graph: string = await this.graph(options, headers);
     return req.respond({
       status: Status.OK,
@@ -114,7 +113,7 @@ class EgoNet {
     });
   }
 
-  async startServer() {
+  async startServer(): Promise<void> {
     const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
     console.info(
       `${Colors.brightCyan("Server")} is running at ${
@@ -145,7 +144,7 @@ class EgoNet {
           ...params.get("d") && { depth: Number(params.get("d")) },
           ...params.get("r") && { radius: Number(params.get("r")) },
         }, headers)
-          .catch(async ({ message }) => {
+          .catch(async ({ message }): Promise<void> => {
             try {
               await this.handleError(req, message, headers);
             } catch (err) {
