@@ -60,7 +60,7 @@ class EgoNet {
     return JSON.stringify(ego.toObject());
   }
 
-  @RateLimit({ rate: 1, interval: 1000 })
+  @RateLimit({ rate: 50 }) // 50 RPS
   async handleQuery(
     req: ServerRequest,
     options: EgoGraphOptions,
