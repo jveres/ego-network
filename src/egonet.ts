@@ -10,7 +10,13 @@ import { Status } from "https://deno.land/std@0.79.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.79.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 //import { Memoize, RateLimit } from "https://deno.land/x/deco@0.4.2/mod.ts";
-import { Memoize, RateLimit } from "../../../deco/deco/mod.ts";
+import {
+  Memoize,
+  RateLimit,
+  sleep,
+  Trace,
+  Try,
+} from "../../../deco/deco/mod.ts";
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
@@ -54,7 +60,7 @@ class EgoNet {
     return JSON.stringify(ego.toObject());
   }
 
-  @RateLimit({ rate: 1, interval: 1000}) // 1 RPS
+  @RateLimit({ rate: 1, interval: 1000 })
   async handleQuery(
     req: ServerRequest,
     options: EgoGraphOptions,
@@ -98,6 +104,9 @@ class EgoNet {
     });
   }
 
+  @Try({
+    catch: ["BrokenPipe"],
+  })
   handleError(
     req: ServerRequest,
     message: string,
@@ -144,15 +153,9 @@ class EgoNet {
           query: params.get("q") ?? "",
           ...params.get("d") && { depth: Number(params.get("d")) },
           ...params.get("r") && { radius: Number(params.get("r")) },
-        }, headers)
-          .catch(async (e): Promise<void> => {
-            //console.error(e);
-            try {
-              await this.handleError(req, e.message, headers);
-            } catch (err) {
-              console.error(err); // Issue with broken pipe (os error 32)
-            }
-          });
+        }, headers).catch(async (e): Promise<void> => {
+          await this.handleError(req, e.message ?? e, headers);
+        });
       } else {
         this.handleNotFound(req, headers);
       }
