@@ -3,6 +3,7 @@
 // license that can be found in the LICENSE file.
 
 import {
+  Response,
   serve,
   ServerRequest,
 } from "https://deno.land/std@0.79.0/http/server.ts";
@@ -20,21 +21,11 @@ import {
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
-const REDIS_URL = Deno.env.get("FLY_REDIS_CACHE_URL");
-const ALLOWED_ORIGINS = [
-  "https://ego.jveres.me",
-];
+const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
+const MAX_QUERY_RPS = 50;
 
 class EgoNet {
-  constructor() {
-    REDIS_URL && console.info(
-      `${Colors.brightCyan("Redis")} is accessible at ${
-        Colors.bold(Colors.underline((REDIS_URL)))
-      }`,
-    );
-  }
-
   @Memoize({
     ttl: CACHE_EXPIRATION_MS,
     resolver: (options: EgoGraphOptions): string => {
@@ -60,7 +51,15 @@ class EgoNet {
     return JSON.stringify(ego.toObject());
   }
 
-  @RateLimit({ rate: 50 }) // 50 RPS
+  @Try({
+    catch: ["BrokenPipe"],
+    log: true,
+  })
+  async respond(req: ServerRequest, r: Response): Promise<void> {
+    return req.respond(r);
+  }
+
+  @RateLimit({ rate: MAX_QUERY_RPS })
   async handleQuery(
     req: ServerRequest,
     options: EgoGraphOptions,
@@ -68,7 +67,7 @@ class EgoNet {
   ): Promise<void> {
     console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
     const graph: string = await this.graph(options, headers);
-    return req.respond({
+    return this.respond(req, {
       status: Status.OK,
       headers,
       body: graph,
@@ -82,7 +81,7 @@ class EgoNet {
     console.error(
       `${req.method} ${req.url} ${Colors.brightYellow("Not acceptable")}`,
     );
-    return req.respond({
+    return this.respond(req, {
       status: Status.NotAcceptable,
       headers,
       body: JSON.stringify({
@@ -95,7 +94,7 @@ class EgoNet {
     console.warn(
       `${req.method} ${req.url} ${Colors.brightYellow("Not Found")}`,
     );
-    return req.respond({
+    return this.respond(req, {
       status: Status.NotFound,
       headers,
       body: JSON.stringify({
@@ -104,16 +103,13 @@ class EgoNet {
     });
   }
 
-  @Try({
-    catch: ["BrokenPipe"],
-  })
   handleError(
     req: ServerRequest,
     message: string,
     headers: Headers,
   ): Promise<void> {
     console.error(`${req.method} ${req.url} ${Colors.brightRed(message)}`);
-    return req.respond({
+    return this.respond(req, {
       status: Status.InternalServerError,
       headers,
       body: JSON.stringify({
@@ -153,9 +149,10 @@ class EgoNet {
           query: params.get("q") ?? "",
           ...params.get("d") && { depth: Number(params.get("d")) },
           ...params.get("r") && { radius: Number(params.get("r")) },
-        }, headers).catch(async (e): Promise<void> => {
-          await this.handleError(req, e.message ?? e, headers);
-        });
+        }, headers)
+          .catch(async (e): Promise<void> => { // error handling
+            await this.handleError(req, e.message ?? e, headers);
+          });
       } else {
         this.handleNotFound(req, headers);
       }
