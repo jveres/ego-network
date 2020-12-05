@@ -6,7 +6,7 @@
 
 import { Status } from "https://deno.land/std@0.79.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
-import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.4.3/mod.ts";
+import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.4.4/mod.ts";
 
 const FETCH_TIMEOUT_MS = 1000;
 const FETCH_MAX_ATTEMPTS = 3;
