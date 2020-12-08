@@ -6,9 +6,9 @@ import {
   Response,
   serve,
   ServerRequest,
-} from "https://deno.land/std@0.79.0/http/server.ts";
-import { Status } from "https://deno.land/std@0.79.0/http/http_status.ts";
-import * as Colors from "https://deno.land/std@0.79.0/fmt/colors.ts";
+} from "https://deno.land/std@0.80.0/http/server.ts";
+import { Status } from "https://deno.land/std@0.80.0/http/http_status.ts";
+import * as Colors from "https://deno.land/std@0.80.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 import { Memoize, RateLimit, Try } from "https://deno.land/x/deco@0.4.4/mod.ts";
 
@@ -16,7 +16,7 @@ const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
-const MAX_QUERY_RPS = 50;
+const MAX_QUERY_RPS = 50; // 50 Requests Per Second
 
 class EgoNet {
   @Memoize({
