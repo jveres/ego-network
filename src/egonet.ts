@@ -36,7 +36,7 @@ class EgoNet {
       );
     },
   })
-  async graph(options: EgoGraphOptions, headers: Headers): Promise<string> {
+  async graph(options: EgoGraphOptions): Promise<string> {
     const ego = new EgoGraph(
       { query: options.query, depth: options.depth, radius: options.radius },
     );
@@ -59,7 +59,7 @@ class EgoNet {
     headers: Headers,
   ): Promise<void> {
     console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
-    const graph: string = await this.graph(options, headers);
+    const graph: string = await this.graph(options);
     return this.respond(req, {
       status: Status.OK,
       headers,

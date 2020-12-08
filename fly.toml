@@ -1,17 +1,17 @@
 app = "egonet"
 
 [[services]]
-  internal_port = 8080
-  protocol = "tcp"
+internal_port = 8080
+protocol = "tcp"
 
-  [services.concurrency]
-    hard_limit = 50
-    soft_limit = 40
+[services.concurrency]
+hard_limit = 50
+soft_limit = 40
 
-  [[services.ports]]
-    handlers = ["tls", "http"]
-    port = "10001"
+[[services.ports]]
+handlers = ["tls", "http"]
+port = "10001"
 
-  [[services.tcp_checks]]
-    interval = 10000
-    timeout = 2000
+[[services.tcp_checks]]
+interval = 10000
+timeout = 2000
