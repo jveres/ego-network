@@ -7,7 +7,7 @@ import {
   assertEquals,
   assertExists,
   assertObjectMatch,
-} from "https://deno.land/std@0.80.0/testing/asserts.ts";
+} from "https://deno.land/std@0.82.0/testing/asserts.ts";
 
 Deno.test({
   name: "fetch with HTTP proxy",
