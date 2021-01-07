@@ -60,6 +60,12 @@ class EgoNet {
   ): Promise<void> {
     console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
     const graph: string = await this.graph(options);
+    headers.set(
+      "Cache-Control",
+      `public, max-age=${CACHE_EXPIRATION_MS / 1000}`,
+    );
+    headers.set("Date", new Date().toUTCString());
+    headers.set("Content-Type", "application/json");
     return this.respond(req, {
       status: Status.OK,
       headers,
@@ -127,13 +133,16 @@ class EgoNet {
     for await (const req of server) {
       const origin = req.headers.get("origin");
       const headers = new Headers();
-      if (origin !== null && ALLOWED_ORIGINS.indexOf(origin) !== -1) {
+      if (origin && ALLOWED_ORIGINS.includes(origin)) {
         headers.set("Access-Control-Allow-Origin", origin); // enable CORS
       }
       const host = req.headers.get("host");
       const params = new URLSearchParams(req.url.slice(1));
       if (
-        host !== `localhost:${SERVER_PORT}` &&
+        //host !== `localhost:${SERVER_PORT}` &&
+        (host &&
+          ![`localhost:${SERVER_PORT}`, `host.docker.internal:${SERVER_PORT}`]
+            .includes(host)) &&
         !headers.get("Access-Control-Allow-Origin")
       ) {
         this.handleNotAcceptable(req, headers); // not local dev and missing or not allowed origin

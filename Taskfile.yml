@@ -36,7 +36,7 @@ tasks:
     cmds:
       - deno run {{.PROD_ARGS}} dist/egonet.js
   deploy:
-    deps: [build]
+    deps: [clean, build]
     cmds:
       - fly deploy
   push:
@@ -58,7 +58,7 @@ tasks:
       - docker kill $(docker ps | grep "egonet" | awk '{ print $1 }')
   curl-test:
     cmds:
-      - curl -sX GET "http://localhost:{{.PORT}}/?q=apple" | json_pp
+      - curl -sX GET "http://localhost:{{.PORT}}/?q=apple" | jq -c
   clean:
     cmds:
       - rm dist/*
