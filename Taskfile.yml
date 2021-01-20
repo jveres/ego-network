@@ -43,7 +43,7 @@ tasks:
     cmds:
       - deno compile --unstable --lite {{.PROD_ARGS}} --target x86_64-unknown-linux-gnu --output dist/egonet-x86_64-unknown-linux-gnu dist/egonet.min.js
   deploy:
-    deps: [clean, build]
+    deps: [compile-linux]
     cmds:
       - fly deploy
   push:
