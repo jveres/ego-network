@@ -26,7 +26,6 @@ tasks:
     cmds:
       - deno bundle src/egonet.ts dist/egonet.js
       - terser --compress --mangle --output dist/egonet.min.js -- dist/egonet.js
-      - mv dist/egonet.min.js dist/egonet.js
     sources:
       - ./src/*.ts
     generates:
@@ -34,7 +33,15 @@ tasks:
   prod:
     deps: [build]
     cmds:
-      - deno run {{.PROD_ARGS}} dist/egonet.js
+      - deno run {{.PROD_ARGS}} dist/egonet.min.js
+  compile-osx:
+    deps: [build]
+    cmds:
+      - deno compile --unstable --lite {{.PROD_ARGS}} --target x86_64-apple-darwin --output dist/egonet-x86_64-apple-darwin dist/egonet.min.js
+  compile-linux:
+    deps: [build]
+    cmds:
+      - deno compile --unstable --lite {{.PROD_ARGS}} --target x86_64-unknown-linux-gnu --output dist/egonet-x86_64-unknown-linux-gnu dist/egonet.min.js
   deploy:
     deps: [clean, build]
     cmds:

@@ -10,7 +10,7 @@ import {
 import { Status } from "https://deno.land/std@0.82.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.82.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
-import { Memoize, RateLimit, Try } from "https://deno.land/x/deco@0.4.6/mod.ts";
+import { Memoize, RateLimit, Try } from "https://deno.land/x/deco@0.4.7/mod.ts";
 
 const SERVER_HOST = "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
@@ -118,10 +118,13 @@ class EgoNet {
     });
   }
 
+  @Try({
+    log: true,
+  })
   async startServer(): Promise<void> {
     const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
     console.info(
-      `${Colors.brightCyan("Server")} is running at ${
+      `${Colors.brightBlue("Server")} is running at ${
         Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))
       }`,
     );
@@ -139,7 +142,6 @@ class EgoNet {
       const host = req.headers.get("host");
       const params = new URLSearchParams(req.url.slice(1));
       if (
-        //host !== `localhost:${SERVER_PORT}` &&
         (host &&
           ![`localhost:${SERVER_PORT}`, `host.docker.internal:${SERVER_PORT}`]
             .includes(host)) &&

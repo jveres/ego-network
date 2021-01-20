@@ -1,1 +1,2763 @@
-function _applyDecoratedDescriptor(t,e,r,n,i){var s={};return Object.keys(n).forEach((function(t){s[t]=n[t]})),s.enumerable=!!s.enumerable,s.configurable=!!s.configurable,("value"in s||s.initializer)&&(s.writable=!0),s=r.slice().reverse().reduce((function(r,n){return n(t,e,r)||r}),s),i&&void 0!==s.initializer&&(s.value=s.initializer?s.initializer.call(i):void 0,s.initializer=void 0),void 0===s.initializer&&(Object.defineProperty(t,e,s),s=null),s}var _class,_dec,_dec1,_dec2;const CR="\r".charCodeAt(0),LF="\n".charCodeAt(0);class BufferFullError extends Error{name="BufferFullError";constructor(t){super("Buffer full"),this.partial=t}}class PartialReadError extends Deno.errors.UnexpectedEof{name="PartialReadError";constructor(){super("Encountered UnexpectedEof, data only partially read")}}class DenoStdInternalError extends Error{constructor(t){super(t),this.name="DenoStdInternalError"}}function assert(t,e=""){if(!t)throw new DenoStdInternalError(e)}function copy(t,e,r=0){r=Math.max(0,Math.min(r,e.byteLength));const n=e.byteLength-r;return t.byteLength>n&&(t=t.subarray(0,n)),e.set(t,r),t.byteLength}class BufReader{r=0;w=0;eof=!1;static create(t,e=4096){return t instanceof BufReader?t:new BufReader(t,e)}constructor(t,e=4096){e<16&&(e=16),this._reset(new Uint8Array(e),t)}size(){return this.buf.byteLength}buffered(){return this.w-this.r}async _fill(){if(this.r>0&&(this.buf.copyWithin(0,this.r,this.w),this.w-=this.r,this.r=0),this.w>=this.buf.byteLength)throw Error("bufio: tried to fill full buffer");for(let t=100;t>0;t--){const t=await this.rd.read(this.buf.subarray(this.w));if(null===t)return void(this.eof=!0);if(assert(t>=0,"negative read"),this.w+=t,t>0)return}throw new Error("No progress after 100 read() calls")}reset(t){this._reset(this.buf,t)}_reset(t,e){this.buf=t,this.rd=e,this.eof=!1}async read(t){let e=t.byteLength;if(0===t.byteLength)return e;if(this.r===this.w){if(t.byteLength>=this.buf.byteLength){const e=await this.rd.read(t);return assert((e??0)>=0,"negative read"),e}if(this.r=0,this.w=0,e=await this.rd.read(this.buf),0===e||null===e)return e;assert(e>=0,"negative read"),this.w+=e}const r=copy(this.buf.subarray(this.r,this.w),t,0);return this.r+=r,r}async readFull(t){let e=0;for(;e<t.length;)try{const r=await this.read(t.subarray(e));if(null===r){if(0===e)return null;throw new PartialReadError}e+=r}catch(r){throw r.partial=t.subarray(0,e),r}return t}async readByte(){for(;this.r===this.w;){if(this.eof)return null;await this._fill()}const t=this.buf[this.r];return this.r++,t}async readString(t){if(1!==t.length)throw new Error("Delimiter should be a single character");const e=await this.readSlice(t.charCodeAt(0));return null===e?null:(new TextDecoder).decode(e)}async readLine(){let t;try{t=await this.readSlice(LF)}catch(t){let{partial:e}=t;if(assert(e instanceof Uint8Array,"bufio: caught error from `readSlice()` without `partial` property"),!(t instanceof BufferFullError))throw t;return!this.eof&&e.byteLength>0&&e[e.byteLength-1]===CR&&(assert(this.r>0,"bufio: tried to rewind past start of buffer"),this.r--,e=e.subarray(0,e.byteLength-1)),{line:e,more:!this.eof}}if(null===t)return null;if(0===t.byteLength)return{line:t,more:!1};if(t[t.byteLength-1]==LF){let e=1;t.byteLength>1&&t[t.byteLength-2]===CR&&(e=2),t=t.subarray(0,t.byteLength-e)}return{line:t,more:!1}}async readSlice(t){let e,r=0;for(;;){let n=this.buf.subarray(this.r+r,this.w).indexOf(t);if(n>=0){n+=r,e=this.buf.subarray(this.r,this.r+n+1),this.r+=n+1;break}if(this.eof){if(this.r===this.w)return null;e=this.buf.subarray(this.r,this.w),this.r=this.w;break}if(this.buffered()>=this.buf.byteLength){this.r=this.w;const t=this.buf,e=this.buf.slice(0);throw this.buf=e,new BufferFullError(t)}r=this.w-this.r;try{await this._fill()}catch(t){throw t.partial=e,t}}return e}async peek(t){if(t<0)throw Error("negative count");let e=this.w-this.r;for(;e<t&&e<this.buf.byteLength&&!this.eof;){try{await this._fill()}catch(t){throw t.partial=this.buf.subarray(this.r,this.w),t}e=this.w-this.r}if(0===e&&this.eof)return null;if(e<t&&this.eof)return this.buf.subarray(this.r,this.r+e);if(e<t)throw new BufferFullError(this.buf.subarray(this.r,this.w));return this.buf.subarray(this.r,this.r+t)}}class AbstractBufBase{usedBufferBytes=0;err=null;size(){return this.buf.byteLength}available(){return this.buf.byteLength-this.usedBufferBytes}buffered(){return this.usedBufferBytes}}class BufWriter extends AbstractBufBase{static create(t,e=4096){return t instanceof BufWriter?t:new BufWriter(t,e)}constructor(t,e=4096){super(),this.writer=t,e<=0&&(e=4096),this.buf=new Uint8Array(e)}reset(t){this.err=null,this.usedBufferBytes=0,this.writer=t}async flush(){if(null!==this.err)throw this.err;if(0!==this.usedBufferBytes){try{await Deno.writeAll(this.writer,this.buf.subarray(0,this.usedBufferBytes))}catch(t){throw this.err=t,t}this.buf=new Uint8Array(this.buf.length),this.usedBufferBytes=0}}async write(t){if(null!==this.err)throw this.err;if(0===t.length)return 0;let e=0,r=0;for(;t.byteLength>this.available();){if(0===this.buffered())try{r=await this.writer.write(t)}catch(t){throw this.err=t,t}else r=copy(t,this.buf,this.usedBufferBytes),this.usedBufferBytes+=r,await this.flush();e+=r,t=t.subarray(r)}return r=copy(t,this.buf,this.usedBufferBytes),this.usedBufferBytes+=r,e+=r,e}}class BufWriterSync extends AbstractBufBase{static create(t,e=4096){return t instanceof BufWriterSync?t:new BufWriterSync(t,e)}constructor(t,e=4096){super(),this.writer=t,e<=0&&(e=4096),this.buf=new Uint8Array(e)}reset(t){this.err=null,this.usedBufferBytes=0,this.writer=t}flush(){if(null!==this.err)throw this.err;if(0!==this.usedBufferBytes){try{Deno.writeAllSync(this.writer,this.buf.subarray(0,this.usedBufferBytes))}catch(t){throw this.err=t,t}this.buf=new Uint8Array(this.buf.length),this.usedBufferBytes=0}}writeSync(t){if(null!==this.err)throw this.err;if(0===t.length)return 0;let e=0,r=0;for(;t.byteLength>this.available();){if(0===this.buffered())try{r=this.writer.writeSync(t)}catch(t){throw this.err=t,t}else r=copy(t,this.buf,this.usedBufferBytes),this.usedBufferBytes+=r,this.flush();e+=r,t=t.subarray(r)}return r=copy(t,this.buf,this.usedBufferBytes),this.usedBufferBytes+=r,e+=r,e}}function createLPS(t){const e=new Uint8Array(t.length);e[0]=0;let r=0,n=1;for(;n<e.length;)t[n]==t[r]?(r++,e[n]=r,n++):0===r?(e[n]=0,n++):r=t[r-1];return e}async function*readDelim(t,e){const r=e.length,n=createLPS(e);let i=new Deno.Buffer;const s=new Uint8Array(Math.max(1024,r+1));let a=0,o=0;for(;;){const c=await t.read(s);if(null===c)return void(yield i.bytes());if(c<0)return;const h=s.subarray(0,c);await Deno.writeAll(i,h);let u=i.bytes();for(;a<u.length;)if(u[a]===e[o]){if(a++,o++,o===r){const t=a-r,e=u.subarray(0,t),n=u.slice(a);yield e,u=n,a=0,o=0}}else 0===o?a++:o=n[o-1];i=new Deno.Buffer(u)}}async function*readStringDelim(t,e){const r=new TextEncoder,n=new TextDecoder;for await(const i of readDelim(t,r.encode(e)))yield n.decode(i)}function indexOf(t,e,r=0){if(r>=t.length)return-1;r<0&&(r=0);const n=e[0];for(let i=r;i<t.length;i++){if(t[i]!==n)continue;let r=1,s=i;for(;r<e.length&&(s++,t[s]===e[s-i]);)r++;if(r===e.length)return i}return-1}function concat(...t){let e=0;for(const r of t)e+=r.length;const r=new Uint8Array(e);let n=0;for(const e of t)r.set(e,n),n+=e.length;return r}const invalidHeaderCharRegex=/[^\t\x20-\x7e\x80-\xff]/g,decoder=new TextDecoder;function decode(t){return decoder.decode(t)}function str(t){return null==t?"":decode(t)}function charCode(t){return t.charCodeAt(0)}class TextProtoReader{constructor(t){this.r=t}async readLine(){const t=await this.readLineSlice();return null===t?null:str(t)}async readMIMEHeader(){const t=new Headers;let e,r=await this.r.peek(1);if(null===r)return null;if(r[0]!=charCode(" ")&&r[0]!=charCode("\t")||(e=await this.readLineSlice()),r=await this.r.peek(1),null===r)throw new Deno.errors.UnexpectedEof;if(r[0]==charCode(" ")||r[0]==charCode("\t"))throw new Deno.errors.InvalidData(`malformed MIME header initial line: ${str(e)}`);for(;;){const e=await this.readLineSlice();if(null===e)throw new Deno.errors.UnexpectedEof;if(0===e.byteLength)return t;let r=e.indexOf(charCode(":"));if(r<0)throw new Deno.errors.InvalidData(`malformed MIME header line: ${str(e)}`);const n=str(e.subarray(0,r));if(""==n)continue;for(r++;r<e.byteLength&&(e[r]==charCode(" ")||e[r]==charCode("\t"));)r++;const i=str(e.subarray(r)).replace(invalidHeaderCharRegex,encodeURI);try{t.append(n,i)}catch{}}}async readLineSlice(){let t;for(;;){const e=await this.r.readLine();if(null===e)return null;const{line:r,more:n}=e;if(!t&&!n)return 0===this.skipSpace(r)?new Uint8Array(0):r;if(t=t?concat(t,r):r,!n)break}return t}skipSpace(t){let e=0;for(let r=0;r<t.length;r++)t[r]!==charCode(" ")&&t[r]!==charCode("\t")&&e++;return e}}const encoder=new TextEncoder;function encode(t){return encoder.encode(t)}function emptyReader(){return{read:t=>Promise.resolve(null)}}function bodyReader(t,e){let r=0,n=!1;return{read:async function(i){if(n)return null;let s;const a=t-r;if(a>=i.byteLength)s=await e.read(i);else{const t=i.subarray(0,a);s=await e.read(t)}return null!==s&&(r+=s),n=r===t,s}}}function deferred(){let t;const e=new Promise(((e,r)=>{t={resolve:e,reject:r}}));return Object.assign(e,t)}function chunkedBodyReader(t,e){const r=new TextProtoReader(e);let n=!1;const i=[];return{read:async function(s){if(n)return null;const[a]=i;if(a){const t=a.data.byteLength-a.offset,e=Math.min(t,s.byteLength);for(let t=0;t<e;t++)s[t]=a.data[a.offset+t];if(a.offset+=e,a.offset===a.data.byteLength&&(i.shift(),null===await r.readLine()))throw new Deno.errors.UnexpectedEof;return e}const o=await r.readLine();if(null===o)throw new Deno.errors.UnexpectedEof;const[c]=o.split(";"),h=parseInt(c,16);if(Number.isNaN(h)||h<0)throw new Deno.errors.InvalidData("Invalid chunk size");if(h>0){if(h>s.byteLength){let t=await e.readFull(s);if(null===t)throw new Deno.errors.UnexpectedEof;const r=new Uint8Array(h-s.byteLength);if(t=await e.readFull(r),null===t)throw new Deno.errors.UnexpectedEof;return i.push({offset:0,data:r}),s.byteLength}{const t=s.subarray(0,h);if(null===await e.readFull(t))throw new Deno.errors.UnexpectedEof;if(null===await r.readLine())throw new Deno.errors.UnexpectedEof;return h}}if(assert(0===h),null===await e.readLine())throw new Deno.errors.UnexpectedEof;return await readTrailers(t,e),n=!0,null}}}function isProhibidedForTrailer(t){return new Set(["transfer-encoding","content-length","trailer"]).has(t.toLowerCase())}async function readTrailers(t,e){const r=parseTrailer(t.get("trailer"));if(null==r)return;const n=[...r.keys()],i=new TextProtoReader(e),s=await i.readMIMEHeader();if(null==s)throw new Deno.errors.InvalidData("Missing trailer header.");const a=[...s.keys()].filter((t=>!n.includes(t)));if(a.length>0)throw new Deno.errors.InvalidData(`Undeclared trailers: ${Deno.inspect(a)}.`);for(const[e,r]of s)t.append(e,r);const o=n.filter((t=>!s.has(t)));if(o.length>0)throw new Deno.errors.InvalidData(`Missing trailers: ${Deno.inspect(o)}.`);t.delete("trailer")}function parseTrailer(t){if(null==t)return;const e=t.split(",").map((t=>t.trim().toLowerCase()));if(0===e.length)throw new Deno.errors.InvalidData("Empty trailer header.");const r=e.filter((t=>isProhibidedForTrailer(t)));if(r.length>0)throw new Deno.errors.InvalidData(`Prohibited trailer names: ${Deno.inspect(r)}.`);return new Headers(e.map((t=>[t,""])))}var Status;async function writeChunkedBody(t,e){for await(const r of Deno.iter(e)){if(r.byteLength<=0)continue;const e=encoder.encode(`${r.byteLength.toString(16)}\r\n`),n=encoder.encode("\r\n");await t.write(e),await t.write(r),await t.write(n),await t.flush()}const r=encoder.encode("0\r\n\r\n");await t.write(r)}!function(t){t[t.Continue=100]="Continue",t[t.SwitchingProtocols=101]="SwitchingProtocols",t[t.Processing=102]="Processing",t[t.EarlyHints=103]="EarlyHints",t[t.OK=200]="OK",t[t.Created=201]="Created",t[t.Accepted=202]="Accepted",t[t.NonAuthoritativeInfo=203]="NonAuthoritativeInfo",t[t.NoContent=204]="NoContent",t[t.ResetContent=205]="ResetContent",t[t.PartialContent=206]="PartialContent",t[t.MultiStatus=207]="MultiStatus",t[t.AlreadyReported=208]="AlreadyReported",t[t.IMUsed=226]="IMUsed",t[t.MultipleChoices=300]="MultipleChoices",t[t.MovedPermanently=301]="MovedPermanently",t[t.Found=302]="Found",t[t.SeeOther=303]="SeeOther",t[t.NotModified=304]="NotModified",t[t.UseProxy=305]="UseProxy",t[t.TemporaryRedirect=307]="TemporaryRedirect",t[t.PermanentRedirect=308]="PermanentRedirect",t[t.BadRequest=400]="BadRequest",t[t.Unauthorized=401]="Unauthorized",t[t.PaymentRequired=402]="PaymentRequired",t[t.Forbidden=403]="Forbidden",t[t.NotFound=404]="NotFound",t[t.MethodNotAllowed=405]="MethodNotAllowed",t[t.NotAcceptable=406]="NotAcceptable",t[t.ProxyAuthRequired=407]="ProxyAuthRequired",t[t.RequestTimeout=408]="RequestTimeout",t[t.Conflict=409]="Conflict",t[t.Gone=410]="Gone",t[t.LengthRequired=411]="LengthRequired",t[t.PreconditionFailed=412]="PreconditionFailed",t[t.RequestEntityTooLarge=413]="RequestEntityTooLarge",t[t.RequestURITooLong=414]="RequestURITooLong",t[t.UnsupportedMediaType=415]="UnsupportedMediaType",t[t.RequestedRangeNotSatisfiable=416]="RequestedRangeNotSatisfiable",t[t.ExpectationFailed=417]="ExpectationFailed",t[t.Teapot=418]="Teapot",t[t.MisdirectedRequest=421]="MisdirectedRequest",t[t.UnprocessableEntity=422]="UnprocessableEntity",t[t.Locked=423]="Locked",t[t.FailedDependency=424]="FailedDependency",t[t.TooEarly=425]="TooEarly",t[t.UpgradeRequired=426]="UpgradeRequired",t[t.PreconditionRequired=428]="PreconditionRequired",t[t.TooManyRequests=429]="TooManyRequests",t[t.RequestHeaderFieldsTooLarge=431]="RequestHeaderFieldsTooLarge",t[t.UnavailableForLegalReasons=451]="UnavailableForLegalReasons",t[t.InternalServerError=500]="InternalServerError",t[t.NotImplemented=501]="NotImplemented",t[t.BadGateway=502]="BadGateway",t[t.ServiceUnavailable=503]="ServiceUnavailable",t[t.GatewayTimeout=504]="GatewayTimeout",t[t.HTTPVersionNotSupported=505]="HTTPVersionNotSupported",t[t.VariantAlsoNegotiates=506]="VariantAlsoNegotiates",t[t.InsufficientStorage=507]="InsufficientStorage",t[t.LoopDetected=508]="LoopDetected",t[t.NotExtended=510]="NotExtended",t[t.NetworkAuthenticationRequired=511]="NetworkAuthenticationRequired"}(Status||(Status={}));const STATUS_TEXT=new Map([[Status.Continue,"Continue"],[Status.SwitchingProtocols,"Switching Protocols"],[Status.Processing,"Processing"],[Status.EarlyHints,"Early Hints"],[Status.OK,"OK"],[Status.Created,"Created"],[Status.Accepted,"Accepted"],[Status.NonAuthoritativeInfo,"Non-Authoritative Information"],[Status.NoContent,"No Content"],[Status.ResetContent,"Reset Content"],[Status.PartialContent,"Partial Content"],[Status.MultiStatus,"Multi-Status"],[Status.AlreadyReported,"Already Reported"],[Status.IMUsed,"IM Used"],[Status.MultipleChoices,"Multiple Choices"],[Status.MovedPermanently,"Moved Permanently"],[Status.Found,"Found"],[Status.SeeOther,"See Other"],[Status.NotModified,"Not Modified"],[Status.UseProxy,"Use Proxy"],[Status.TemporaryRedirect,"Temporary Redirect"],[Status.PermanentRedirect,"Permanent Redirect"],[Status.BadRequest,"Bad Request"],[Status.Unauthorized,"Unauthorized"],[Status.PaymentRequired,"Payment Required"],[Status.Forbidden,"Forbidden"],[Status.NotFound,"Not Found"],[Status.MethodNotAllowed,"Method Not Allowed"],[Status.NotAcceptable,"Not Acceptable"],[Status.ProxyAuthRequired,"Proxy Authentication Required"],[Status.RequestTimeout,"Request Timeout"],[Status.Conflict,"Conflict"],[Status.Gone,"Gone"],[Status.LengthRequired,"Length Required"],[Status.PreconditionFailed,"Precondition Failed"],[Status.RequestEntityTooLarge,"Request Entity Too Large"],[Status.RequestURITooLong,"Request URI Too Long"],[Status.UnsupportedMediaType,"Unsupported Media Type"],[Status.RequestedRangeNotSatisfiable,"Requested Range Not Satisfiable"],[Status.ExpectationFailed,"Expectation Failed"],[Status.Teapot,"I'm a teapot"],[Status.MisdirectedRequest,"Misdirected Request"],[Status.UnprocessableEntity,"Unprocessable Entity"],[Status.Locked,"Locked"],[Status.FailedDependency,"Failed Dependency"],[Status.TooEarly,"Too Early"],[Status.UpgradeRequired,"Upgrade Required"],[Status.PreconditionRequired,"Precondition Required"],[Status.TooManyRequests,"Too Many Requests"],[Status.RequestHeaderFieldsTooLarge,"Request Header Fields Too Large"],[Status.UnavailableForLegalReasons,"Unavailable For Legal Reasons"],[Status.InternalServerError,"Internal Server Error"],[Status.NotImplemented,"Not Implemented"],[Status.BadGateway,"Bad Gateway"],[Status.ServiceUnavailable,"Service Unavailable"],[Status.GatewayTimeout,"Gateway Timeout"],[Status.HTTPVersionNotSupported,"HTTP Version Not Supported"],[Status.VariantAlsoNegotiates,"Variant Also Negotiates"],[Status.InsufficientStorage,"Insufficient Storage"],[Status.LoopDetected,"Loop Detected"],[Status.NotExtended,"Not Extended"],[Status.NetworkAuthenticationRequired,"Network Authentication Required"]]);async function writeTrailers(t,e,r){const n=e.get("trailer");if(null===n)throw new TypeError("Missing trailer header.");const i=e.get("transfer-encoding");if(null===i||!i.match(/^chunked/))throw new TypeError(`Trailers are only allowed for "transfer-encoding: chunked", got "transfer-encoding: ${i}".`);const s=BufWriter.create(t),a=n.split(",").map((t=>t.trim().toLowerCase())),o=a.filter((t=>isProhibidedForTrailer(t)));if(o.length>0)throw new TypeError(`Prohibited trailer names: ${Deno.inspect(o)}.`);const c=[...r.keys()].filter((t=>!a.includes(t)));if(c.length>0)throw new TypeError(`Undeclared trailers: ${Deno.inspect(c)}.`);for(const[t,e]of r)await s.write(encoder.encode(`${t}: ${e}\r\n`));await s.write(encoder.encode("\r\n")),await s.flush()}async function writeResponse(t,e){const r=e.status||200,n=STATUS_TEXT.get(r),i=BufWriter.create(t);if(!n)throw new Deno.errors.InvalidData("Bad status code");e.body||(e.body=new Uint8Array),"string"==typeof e.body&&(e.body=encoder.encode(e.body));let s=`HTTP/1.1 ${r} ${n}\r\n`;const a=e.headers??new Headers;e.body&&!a.get("content-length")&&(e.body instanceof Uint8Array?s+=`content-length: ${e.body.byteLength}\r\n`:a.get("transfer-encoding")||(s+="transfer-encoding: chunked\r\n"));for(const[t,e]of a)s+=`${t}: ${e}\r\n`;s+="\r\n";const o=encoder.encode(s);if(assert(await i.write(o)===o.byteLength),e.body instanceof Uint8Array){assert(await i.write(e.body)===e.body.byteLength)}else if(a.has("content-length")){const t=a.get("content-length");assert(null!=t);const r=parseInt(t);assert(await Deno.copy(e.body,i)===r)}else await writeChunkedBody(i,e.body);if(e.trailers){const t=await e.trailers();await writeTrailers(i,a,t)}await i.flush()}function parseHTTPVersion(t){switch(t){case"HTTP/1.1":return[1,1];case"HTTP/1.0":return[1,0];default:{if(!t.startsWith("HTTP/"))break;const e=t.indexOf(".");if(e<0)break;const r=t.substring(t.indexOf("/")+1,e),n=Number(r);if(!Number.isInteger(n)||n<0||n>1e6)break;const i=t.substring(e+1),s=Number(i);if(!Number.isInteger(s)||s<0||s>1e6)break;return[n,s]}}throw new Error(`malformed HTTP version ${t}`)}class ServerRequest{done=deferred();_contentLength=void 0;get contentLength(){if(void 0===this._contentLength){const t=this.headers.get("content-length");t?(this._contentLength=parseInt(t),Number.isNaN(this._contentLength)&&(this._contentLength=null)):this._contentLength=null}return this._contentLength}_body=null;get body(){if(!this._body)if(null!=this.contentLength)this._body=bodyReader(this.contentLength,this.r);else{const t=this.headers.get("transfer-encoding");if(null!=t){assert(t.split(",").map((t=>t.trim().toLowerCase())).includes("chunked"),'transfer-encoding must include "chunked" if content-length is not set'),this._body=chunkedBodyReader(this.headers,this.r)}else this._body=emptyReader()}return this._body}async respond(t){let e;try{await writeResponse(this.w,t)}catch(t){try{this.conn.close()}catch{}e=t}if(this.done.resolve(e),e)throw e}finalized=!1;async finalize(){if(this.finalized)return;const t=this.body,e=new Uint8Array(1024);for(;null!==await t.read(e););this.finalized=!0}}async function readRequest(t,e){const r=new TextProtoReader(e),n=await r.readLine();if(null===n)return null;const i=await r.readMIMEHeader();if(null===i)throw new Deno.errors.UnexpectedEof;const s=new ServerRequest;return s.conn=t,s.r=e,[s.method,s.url,s.proto]=n.split(" ",3),[s.protoMinor,s.protoMajor]=parseHTTPVersion(s.proto),s.headers=i,fixLength(s),s}function fixLength(t){const e=t.headers.get("Content-Length");if(e){const r=e.split(",");if(r.length>1){const e=[...new Set(r.map((t=>t.trim())))];if(e.length>1)throw Error("cannot contain multiple Content-Length headers");t.headers.set("Content-Length",e[0])}const n=t.headers.get("Content-Length");if("HEAD"===t.method&&n&&"0"!==n)throw Error("http: method cannot contain a Content-Length");if(n&&t.headers.has("transfer-encoding"))throw new Error("http: Transfer-Encoding and Content-Length cannot be send together")}}class MuxAsyncIterator{iteratorCount=0;yields=[];throws=[];signal=deferred();add(t){++this.iteratorCount,this.callIteratorNext(t)}async callIteratorNext(t){try{const{value:e,done:r}=await t.next();r?--this.iteratorCount:this.yields.push({iterator:t,value:e})}catch(t){this.throws.push(t)}this.signal.resolve()}async*iterate(){for(;this.iteratorCount>0;){await this.signal;for(let t=0;t<this.yields.length;t++){const{iterator:e,value:r}=this.yields[t];yield r,this.callIteratorNext(e)}if(this.throws.length){for(const t of this.throws)throw t;this.throws.length=0}this.yields.length=0,this.signal=deferred()}}[Symbol.asyncIterator](){return this.iterate()}}class Server{closing=!1;connections=[];constructor(t){this.listener=t}close(){this.closing=!0,this.listener.close();for(const t of this.connections)try{t.close()}catch(t){if(!(t instanceof Deno.errors.BadResource))throw t}}async*iterateHttpRequests(t){const e=new BufReader(t),r=new BufWriter(t);for(;!this.closing;){let n;try{n=await readRequest(t,e)}catch(t){if(t instanceof Deno.errors.InvalidData||t instanceof Deno.errors.UnexpectedEof)try{await writeResponse(r,{status:400,body:encode(`${t.message}\r\n\r\n`)})}catch(t){}break}if(null===n)break;n.w=r,yield n;if(await n.done)return void this.untrackConnection(n.conn);try{await n.finalize()}catch(t){break}}this.untrackConnection(t);try{t.close()}catch(t){}}trackConnection(t){this.connections.push(t)}untrackConnection(t){const e=this.connections.indexOf(t);-1!==e&&this.connections.splice(e,1)}async*acceptConnAndIterateHttpRequests(t){if(this.closing)return;let e;try{e=await this.listener.accept()}catch(e){if(e instanceof Deno.errors.BadResource||e instanceof Deno.errors.InvalidData||e instanceof Deno.errors.UnexpectedEof||e instanceof Deno.errors.ConnectionReset)return t.add(this.acceptConnAndIterateHttpRequests(t));throw e}this.trackConnection(e),t.add(this.acceptConnAndIterateHttpRequests(t)),yield*this.iterateHttpRequests(e)}[Symbol.asyncIterator](){const t=new MuxAsyncIterator;return t.add(this.acceptConnAndIterateHttpRequests(t)),t.iterate()}}function _parseAddrFromStr(t){let e;try{const r=t.startsWith(":")?`0.0.0.0${t}`:t;e=new URL(`http://${r}`)}catch{throw new TypeError("Invalid address.")}if(e.username||e.password||"/"!=e.pathname||e.search||e.hash)throw new TypeError("Invalid address.");return{hostname:e.hostname,port:""===e.port?80:Number(e.port)}}function serve(t){"string"==typeof t&&(t=_parseAddrFromStr(t));const e=Deno.listen(t);return new Server(e)}function serveTLS(t){const e={...t,transport:"tcp"},r=Deno.listenTls(e);return new Server(r)}const noColor=globalThis.Deno?.noColor??!0;let enabled=!noColor;function code(t,e){return{open:`[${t.join(";")}m`,close:`[${e}m`,regexp:new RegExp(`\\x1b\\[${e}m`,"g")}}function run(t,e){return enabled?`${e.open}${t.replace(e.regexp,e.open)}${e.close}`:t}function bold(t){return run(t,code([1],22))}function underline(t){return run(t,code([4],24))}function green(t){return run(t,code([32],39))}function brightBlack(t){return run(t,code([90],39))}function brightRed(t){return run(t,code([91],39))}function brightGreen(t){return run(t,code([92],39))}function brightYellow(t){return run(t,code([93],39))}function brightMagenta(t){return run(t,code([95],39))}function brightCyan(t){return run(t,code([96],39))}function clampAndTruncate(t,e=255,r=0){return Math.trunc(Math.max(Math.min(t,e),r))}const ANSI_PATTERN=new RegExp(["[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)","(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))"].join("|"),"g");function stripColor(t){return t.replace(ANSI_PATTERN,"")}function _applyDecoratedDescriptor1(t,e,r,n,i){var s={};return Object.keys(n).forEach((function(t){s[t]=n[t]})),s.enumerable=!!s.enumerable,s.configurable=!!s.configurable,("value"in s||s.initializer)&&(s.writable=!0),s=r.slice().reverse().reduce((function(r,n){return n(t,e,r)||r}),s),i&&void 0!==s.initializer&&(s.value=s.initializer?s.initializer.call(i):void 0,s.initializer=void 0),void 0===s.initializer&&(Object.defineProperty(t,e,s),s=null),s}var _class1,_dec3,_dec4,_dec5,_dec6,exports={},_dewExec=!1,_global="undefined"!=typeof globalThis?globalThis:"undefined"!=typeof self?self:global,exports1={},_dewExec1=!1;function dew(){if(_dewExec1)return exports1;return _dewExec1=!0,exports1=function(t){!function(t){if(!t)throw new Error("Eventify cannot use falsy object as events subject");for(var e=["on","fire","off"],r=0;r<e.length;++r)if(t.hasOwnProperty(e[r]))throw new Error("Subject cannot be eventified, since it already has property '"+e[r]+"'")}(t);var e=function(t){var e=Object.create(null);return{on:function(r,n,i){if("function"!=typeof n)throw new Error("callback is expected to be a function");var s=e[r];return s||(s=e[r]=[]),s.push({callback:n,ctx:i}),t},off:function(r,n){if(void 0===r)return e=Object.create(null),t;if(e[r])if("function"!=typeof n)delete e[r];else for(var i=e[r],s=0;s<i.length;++s)i[s].callback===n&&i.splice(s,1);return t},fire:function(r){var n,i=e[r];if(!i)return t;arguments.length>1&&(n=Array.prototype.splice.call(arguments,1));for(var s=0;s<i.length;++s){var a=i[s];a.callback.apply(a.ctx,n)}return t}}}(t);return t.on=e.on,t.off=e.off,t.fire=e.fire,t}}function dew1(){if(_dewExec)return exports;_dewExec=!0,exports=function(a){"uniqueLinkId"in(a=a||{})&&(console.warn("ngraph.graph: Starting from version 0.14 `uniqueLinkId` is deprecated.\nUse `multigraph` option instead\n","\n","Note: there is also change in default behavior: From now on each graph\nis considered to be not a multigraph by default (each edge is unique)."),a.multigraph=a.uniqueLinkId);void 0===a.multigraph&&(a.multigraph=!1);if("function"!=typeof Map)throw new Error("ngraph.graph requires `Map` to be defined. Please polyfill it before using ngraph");var o=new Map,c=[],h={},u=0,l=a.multigraph?function(t,e,r){var n=s(t,e),a=h.hasOwnProperty(n);if(a||k(t,e)){a||(h[n]=0);var o="@"+ ++h[n];n=s(t+o,e+o)}return new i(t,e,r,n)}:function(t,e,r){var n=s(t,e);return new i(t,e,r,n)},d=[],f=A,p=A,y=A,g=A,w={addNode:m,addLink:function(t,e,r){y();var i=v(t)||m(t),s=v(e)||m(e),a=l(t,e,r);c.push(a),n(i,a),t!==e&&n(s,a);return f(a,"add"),g(),a},removeLink:T,removeNode:R,getNode:v,getNodeCount:S,getLinkCount:E,getLinksCount:E,getNodesCount:S,getLinks:function(t){var e=v(t);return e?e.links:null},forEachNode:D,forEachLinkedNode:function(t,e,r){var n=v(t);if(n&&n.links&&"function"==typeof e)return r?function(t,e,r){for(var n=0;n<t.length;++n){var i=t[n];if(i.fromId===e&&r(o.get(i.toId),i))return!0}}(n.links,t,e):function(t,e,r){for(var n=0;n<t.length;++n){var i=t[n],s=i.fromId===e?i.toId:i.fromId;if(r(o.get(s),i))return!0}}(n.links,t,e)},forEachLink:function(t){var e,r;if("function"==typeof t)for(e=0,r=c.length;e<r;++e)t(c[e])},beginUpdate:y,endUpdate:g,clear:function(){y(),D((function(t){R(t.id)})),g()},hasLink:k,hasNode:v,getLink:k};return t(w),function(){var t=w.on;function e(){return w.beginUpdate=y=L,w.endUpdate=g=x,f=_,p=b,w.on=t,t.apply(w,arguments)}w.on=e}(),w;function _(t,e){d.push({link:t,changeType:e})}function b(t,e){d.push({node:t,changeType:e})}function m(t,e){if(void 0===t)throw new Error("Invalid node identifier");y();var n=v(t);return n?(n.data=e,p(n,"update")):(n=new r(t,e),p(n,"add")),o.set(t,n),g(),n}function v(t){return o.get(t)}function R(t){var e=v(t);if(!e)return!1;y();var r=e.links;if(r){e.links=null;for(var n=0;n<r.length;++n)T(r[n])}return o.delete(t),p(e,"remove"),g(),!0}function S(){return o.size}function E(){return c.length}function T(t){if(!t)return!1;var r=e(t,c);if(r<0)return!1;y(),c.splice(r,1);var n=v(t.fromId),i=v(t.toId);return n&&(r=e(t,n.links))>=0&&n.links.splice(r,1),i&&(r=e(t,i.links))>=0&&i.links.splice(r,1),f(t,"remove"),g(),!0}function k(t,e){var r,n=v(t);if(!n||!n.links)return null;for(r=0;r<n.links.length;++r){var i=n.links[r];if(i.fromId===t&&i.toId===e)return i}return null}function A(){}function L(){u+=1}function x(){0===(u-=1)&&d.length>0&&(w.fire("changed",d),d.length=0)}function D(t){if("function"!=typeof t)throw new Error("Function is expected to iterate over graph nodes. You passed "+t);for(var e=o.values(),r=e.next();!r.done;){if(t(r.value))return!0;r=e.next()}}};var t=dew();function e(t,e){if(!e)return-1;if(e.indexOf)return e.indexOf(t);var r,n=e.length;for(r=0;r<n;r+=1)if(e[r]===t)return r;return-1}function r(t,e){(this||_global).id=t,(this||_global).links=null,(this||_global).data=e}function n(t,e){t.links?t.links.push(e):t.links=[e]}function i(t,e,r,n){(this||_global).fromId=t,(this||_global).toId=e,(this||_global).data=r,(this||_global).id=n}function s(t,e){return t.toString()+"👉 "+e.toString()}return exports}const __default=dew1(),fetchHeader={headers:{}},httpProxy=Deno.env.get("HTTP_PROXY");if(httpProxy){const t=new URL(httpProxy);fetchHeader.headers={Authorization:`Basic ${btoa(t.username+":"+t.password)}`},console.info(`Using HTTP_PROXY (origin="${t.origin}", Authorization="Basic ***...***")`)}function Timeout(t=1e4){return function(e,r,n){const i=n.value;return n.value=async function(...e){try{return await timeoutAsync.apply(this,[i,e,t])}catch(e){throw"timeout"===e.message&&(e.message=`${bold("Timeout ("+String(t)+"ms")}) exceeded for ${brightMagenta(r+"(…)")}`,Error.captureStackTrace(e,n.value)),e}},n}}var BackOffPolicy;!function(t){t.FixedBackOffPolicy="FixedBackOffPolicy",t.ExponentialBackOffPolicy="ExponentialBackOffPolicy"}(BackOffPolicy||(BackOffPolicy={}));const sleep=t=>new Promise((e=>setTimeout(e,t)));function Retry(t={maxAttempts:3}){return function(r,n,i){const s=i.value;return t.backOffPolicy===BackOffPolicy.ExponentialBackOffPolicy&&(!t.backOff&&(t.backOff=1e3),t.exponentialOption={maxInterval:2e3,multiplier:2,...t.exponentialOption}),i.value=async function(...r){try{return await e.apply(this,[s,r,t.maxAttempts,t.backOff,t.doRetry])}catch(e){throw"maxAttempts"===e.message&&(e.code="429",e.message=`${brightRed("Failed")} for ${brightMagenta(n+"(…)")} for ${brightYellow(t.maxAttempts.toString())} times.`),e}},i};async function e(r,n,i,s,a){try{return await r.apply(this,n)}catch(c){if(--i<0)throw console.error(c?.message),new Error("maxAttempts");if(a&&!a(c))throw c;if(s&&(await(o=s,new Promise((t=>setTimeout(t,o)))),t.backOffPolicy===BackOffPolicy.ExponentialBackOffPolicy&&t.exponentialOption)){const e=s*t.exponentialOption.multiplier;s=e>t.exponentialOption.maxInterval?t.exponentialOption.maxInterval:e}return e.apply(this,[r,n,i,s,a])}var o}}function Trace(t={stack:!1}){return function(e,r,n){const i=n.value;let s;return n.value=async function(...e){const a=new Error;Error.captureStackTrace(a,t.stack?void 0:n.value);const o=t.stack?"\n"+a.stack?.split("\n").slice(1).join("\n"):a.stack?.split("\n").slice(1)[0]?.replace("at","").trim(),c=performance.now();let h;return console.log(`${brightMagenta(r+"(…)")} ${bold("called")} ${t.stack?"":"from"} ${brightCyan(o??s??"unknown")}`),o&&(s=o),h="AsyncFunction"===i.constructor.name?await i.apply(this,e):i.apply(this,e),console.log(`${brightMagenta(r+"(…)")} ${green("ended")} in ${brightYellow((performance.now()-c).toFixed()+"ms")}`),h},n}}let EgoGraph=(_class1=class t{static DEFAULT_GRAPH_DEPTH=1;static DEFAULT_SEARCH_PATTERN=" vs ";static DEFAULT_GRAPH_RADIUS=10;elapsedMs=0;maxDistance=Number.NEGATIVE_INFINITY;constructor(e={query:""}){this.graph=__default(),this.query=e.query,this.depth=e.depth??t.DEFAULT_GRAPH_DEPTH,this.pattern=e.pattern??t.DEFAULT_SEARCH_PATTERN,this.radius=e.radius??t.DEFAULT_GRAPH_RADIUS}async fetchAutocomplete(t,e){const r=t+this.pattern,n=await fetch(`http://suggestqueries.google.com/complete/search?&client=firefox&gl=us&hl=en&q=${encodeURIComponent(r)}`,fetchHeader);if(n.status===Status.OK){const t=await n.json(),r=new Set;for(const n of t[1].slice(0,e))n.split(this.pattern).slice(1).map((t=>{new RegExp("^[0-9.]+$").test(t)||r.add(t)}));return r}throw new Error(`Fetch error: ${n.status} ${n.statusText}`)}async build(){if(""===this.query)return;const t=performance.now();this.graph.beginUpdate();let e=[this.query],r=[0];for(let t=0;t<this.depth;t++){const n=[],i=[];for(let s=0;s<e.length;s++){const a=r[s];if(a>=this.radius)continue;const o=e[s],c=await this.fetchAutocomplete(o,this.radius-a);this.graph.getNode(o)||this.graph.addNode(o,{count:1,depth:o===this.query?0:t+1});let h=c.size,u=1;c.forEach((e=>{const r=a+u;r>this.maxDistance&&(this.maxDistance=r);const s=this.graph.getNode(e);if(s){s.data.count++;const t=this.graph.getLink(o,e),n=this.graph.getLink(e,o);t||n?t?t.data.weight+=h:n.data.weight+=h:this.graph.addLink(o,e,{distance:r,weight:h,query:`${o}${this.pattern}${e}`})}else this.graph.addNode(e,{count:1,depth:t+1}),this.graph.addLink(o,e,{distance:r,weight:h,query:`${o}${this.pattern}${e}`}),i.push(r),n.push(e);h-=1,u+=1}))}e=n,r=i}this.graph.endUpdate(),this.elapsedMs=performance.now()-t}toObject(){let t=Number.NEGATIVE_INFINITY;this.graph.forEachLink((e=>{e.data.weight>t&&(t=e.data.weight)}));const e={nodes:[],links:[],query:this.query,depth:this.depth,radius:this.radius,maxWeight:t,maxDistance:this.maxDistance,pattern:this.pattern,elapsedMs:this.elapsedMs};return this.graph.forEachNode((t=>{e.nodes.push({id:t.id,...t.data})})),this.graph.forEachLink((t=>{e.links.push({source:t.fromId,target:t.toId,...t.data})})),e}},_dec3=Timeout(1e3),_dec4=Retry({maxAttempts:3}),_applyDecoratedDescriptor1(_class1.prototype,"fetchAutocomplete",[_dec3,_dec4],Object.getOwnPropertyDescriptor(_class1.prototype,"fetchAutocomplete"),_class1.prototype),_dec5=Trace(),_dec6=Timeout(1e4),_applyDecoratedDescriptor1(_class1.prototype,"build",[_dec5,_dec6],Object.getOwnPropertyDescriptor(_class1.prototype,"build"),_class1.prototype),_class1);function timeoutAsync(t,e,r){let n;return Promise.race([new Promise(((t,e)=>{n=setTimeout((()=>{clearTimeout(n),e(new Error("timeout"))}),r)})),t.apply(this,e)]).then((t=>(clearTimeout(n),t)))}class LruCache{values=new Map;maxEntries=500;get(t){const e=this.values.get(t);return void 0!==e&&(this.values.delete(t),this.values.set(t,e)),e}has(t){return this.values.has(t)}put(t,e){if(this.values.size>=this.maxEntries){const t=this.values.keys().next().value;this.values.delete(t)}this.values.set(t,e)}}function Memoize(t={}){return function(e,r,n){const i=n.value,s=new LruCache;let a=Number.POSITIVE_INFINITY;return n.value=async function(...e){const r=t.resolver?t.resolver.apply(this,e):JSON.stringify(e);if(s.has(r)&&(!t.ttl||a>Date.now())){const e=s.get(r);return t.onFound?.apply(this,[r,e]),e}{const n=await i.apply(this,e);return s.put(r,n),t.onAdded?.apply(this,[r,n]),t.ttl&&(a=Date.now()+t.ttl),n}},n}}class RateLimitError extends Error{}var exports2={},_dewExec2=!1;function dew2(){if(_dewExec2)return exports2;function t(t,e){e=e||{};this._head=0,this._tail=0,this._capacity=e.capacity,this._capacityMask=3,this._list=new Array(4),Array.isArray(t)&&this._fromArray(t)}return _dewExec2=!0,t.prototype.peekAt=function(t){var e=t;if(e===(0|e)){var r=this.size();if(!(e>=r||e<-r))return e<0&&(e+=r),e=this._head+e&this._capacityMask,this._list[e]}},t.prototype.get=function(t){return this.peekAt(t)},t.prototype.peek=function(){if(this._head!==this._tail)return this._list[this._head]},t.prototype.peekFront=function(){return this.peek()},t.prototype.peekBack=function(){return this.peekAt(-1)},Object.defineProperty(t.prototype,"length",{get:function(){return this.size()}}),t.prototype.size=function(){return this._head===this._tail?0:this._head<this._tail?this._tail-this._head:this._capacityMask+1-(this._head-this._tail)},t.prototype.unshift=function(t){if(void 0===t)return this.size();var e=this._list.length;return this._head=this._head-1+e&this._capacityMask,this._list[this._head]=t,this._tail===this._head&&this._growArray(),this._capacity&&this.size()>this._capacity&&this.pop(),this._head<this._tail?this._tail-this._head:this._capacityMask+1-(this._head-this._tail)},t.prototype.shift=function(){var t=this._head;if(t!==this._tail){var e=this._list[t];return this._list[t]=void 0,this._head=t+1&this._capacityMask,t<2&&this._tail>1e4&&this._tail<=this._list.length>>>2&&this._shrinkArray(),e}},t.prototype.push=function(t){if(void 0===t)return this.size();var e=this._tail;return this._list[e]=t,this._tail=e+1&this._capacityMask,this._tail===this._head&&this._growArray(),this._capacity&&this.size()>this._capacity&&this.shift(),this._head<this._tail?this._tail-this._head:this._capacityMask+1-(this._head-this._tail)},t.prototype.pop=function(){var t=this._tail;if(t!==this._head){var e=this._list.length;this._tail=t-1+e&this._capacityMask;var r=this._list[this._tail];return this._list[this._tail]=void 0,this._head<2&&t>1e4&&t<=e>>>2&&this._shrinkArray(),r}},t.prototype.removeOne=function(t){var e=t;if(e===(0|e)&&this._head!==this._tail){var r=this.size(),n=this._list.length;if(!(e>=r||e<-r)){e<0&&(e+=r),e=this._head+e&this._capacityMask;var i,s=this._list[e];if(t<r/2){for(i=t;i>0;i--)this._list[e]=this._list[e=e-1+n&this._capacityMask];this._list[e]=void 0,this._head=this._head+1+n&this._capacityMask}else{for(i=r-1-t;i>0;i--)this._list[e]=this._list[e=e+1+n&this._capacityMask];this._list[e]=void 0,this._tail=this._tail-1+n&this._capacityMask}return s}}},t.prototype.remove=function(t,e){var r,n=t,i=e;if(n===(0|n)&&this._head!==this._tail){var s=this.size(),a=this._list.length;if(!(n>=s||n<-s||e<1)){if(n<0&&(n+=s),1===e||!e)return(r=new Array(1))[0]=this.removeOne(n),r;if(0===n&&n+e>=s)return r=this.toArray(),this.clear(),r;var o;for(n+e>s&&(e=s-n),r=new Array(e),o=0;o<e;o++)r[o]=this._list[this._head+n+o&this._capacityMask];if(n=this._head+n&this._capacityMask,t+e===s){for(this._tail=this._tail-e+a&this._capacityMask,o=e;o>0;o--)this._list[n=n+1+a&this._capacityMask]=void 0;return r}if(0===t){for(this._head=this._head+e+a&this._capacityMask,o=e-1;o>0;o--)this._list[n=n+1+a&this._capacityMask]=void 0;return r}if(n<s/2){for(this._head=this._head+t+e+a&this._capacityMask,o=t;o>0;o--)this.unshift(this._list[n=n-1+a&this._capacityMask]);for(n=this._head-1+a&this._capacityMask;i>0;)this._list[n=n-1+a&this._capacityMask]=void 0,i--;t<0&&(this._tail=n)}else{for(this._tail=n,n=n+e+a&this._capacityMask,o=s-(e+t);o>0;o--)this.push(this._list[n++]);for(n=this._tail;i>0;)this._list[n=n+1+a&this._capacityMask]=void 0,i--}return this._head<2&&this._tail>1e4&&this._tail<=a>>>2&&this._shrinkArray(),r}}},t.prototype.splice=function(t,e){var r=t;if(r===(0|r)){var n=this.size();if(r<0&&(r+=n),!(r>n)){if(arguments.length>2){var i,s,a,o=arguments.length,c=this._list.length,h=2;if(!n||r<n/2){for(s=new Array(r),i=0;i<r;i++)s[i]=this._list[this._head+i&this._capacityMask];for(0===e?(a=[],r>0&&(this._head=this._head+r+c&this._capacityMask)):(a=this.remove(r,e),this._head=this._head+r+c&this._capacityMask);o>h;)this.unshift(arguments[--o]);for(i=r;i>0;i--)this.unshift(s[i-1])}else{var u=(s=new Array(n-(r+e))).length;for(i=0;i<u;i++)s[i]=this._list[this._head+r+e+i&this._capacityMask];for(0===e?(a=[],r!=n&&(this._tail=this._head+r+c&this._capacityMask)):(a=this.remove(r,e),this._tail=this._tail-u+c&this._capacityMask);h<o;)this.push(arguments[h++]);for(i=0;i<u;i++)this.push(s[i])}return a}return this.remove(r,e)}}},t.prototype.clear=function(){this._head=0,this._tail=0},t.prototype.isEmpty=function(){return this._head===this._tail},t.prototype.toArray=function(){return this._copyArray(!1)},t.prototype._fromArray=function(t){for(var e=0;e<t.length;e++)this.push(t[e])},t.prototype._copyArray=function(t){var e,r=[],n=this._list,i=n.length;if(t||this._head>this._tail){for(e=this._head;e<i;e++)r.push(n[e]);for(e=0;e<this._tail;e++)r.push(n[e])}else for(e=this._head;e<this._tail;e++)r.push(n[e]);return r},t.prototype._growArray=function(){this._head&&(this._list=this._copyArray(!0),this._head=0),this._tail=this._list.length,this._list.length*=2,this._capacityMask=this._capacityMask<<1|1},t.prototype._shrinkArray=function(){this._list.length>>>=1,this._capacityMask>>>=1},exports2=t}const __default1=dew2();function RateLimit(t){return function(e,r,n){const i=n.value,s=new __default1;return n.value=async function(...e){Date.now();for(;s.peekFront()&&Date.now()-s.peekFront()>(t?.interval??1e3);)s.shift();if(s.size()>=(t?.rate??1))throw new RateLimitError("Rate limit exceeded");return s.push(Date.now()),await i.apply(this,e)},n}}function Try(t){return function(e,r,n){const i=n.value;return n.value=async function(...e){try{return await i.apply(this,e)}catch(e){if(e instanceof Error&&t?.catch&&!t.catch.includes(e.constructor.name))throw e;if("string"==typeof e&&t?.catch&&!t.catch.includes(e))throw e;t?.log&&console.error(brightRed("Runtime exception caught:"),brightYellow("string"==typeof e?e:e.message)),t?.onError&&t.onError(e)}finally{t?.onDone&&t.onDone()}},n}}const SERVER_HOST="0.0.0.0",SERVER_PORT=Deno.env.get("PORT")??"8080",ALLOWED_ORIGINS=["https://ego.jveres.me"],CACHE_EXPIRATION_MS=432e5;let EgoNet=(_class=class{async graph(t){const e=new EgoGraph({query:t.query,depth:t.depth,radius:t.radius});return await e.build(),JSON.stringify(e.toObject())}respond(t,e){return t.respond(e)}async handleQuery(t,e,r){console.log(`${brightGreen(t.method)} ${bold(t.url)}`);const n=await this.graph(e);return r.set("Cache-Control","public, max-age=43200"),r.set("Date",(new Date).toUTCString()),r.set("Content-Type","application/json"),this.respond(t,{status:Status.OK,headers:r,body:n})}handleNotAcceptable(t,e){return console.error(`${t.method} ${t.url} ${brightYellow("Not acceptable")}`),this.respond(t,{status:Status.NotAcceptable,headers:e,body:JSON.stringify({message:"Not Acceptable"})})}handleNotFound(t,e){return console.warn(`${t.method} ${t.url} ${brightYellow("Not Found")}`),this.respond(t,{status:Status.NotFound,headers:e,body:JSON.stringify({message:"Request Not Found"})})}handleError(t,e,r){return console.error(`${t.method} ${t.url} ${brightRed(e)}`),this.respond(t,{status:Status.InternalServerError,headers:r,body:JSON.stringify({message:"Internal server error",error:stripColor(e)})})}async startServer(){const t=serve({hostname:"0.0.0.0",port:Number(SERVER_PORT)});console.info(`${brightCyan("Server")} is running at ${bold(underline("0.0.0.0:"+SERVER_PORT))}`),console.info(`Deno: ${brightGreen(Deno.version.deno)} · V8: ${brightGreen(Deno.version.v8)} · TypeScript: ${brightGreen(Deno.version.typescript)}`);for await(const e of t){const t=e.headers.get("origin"),r=new Headers;t&&ALLOWED_ORIGINS.includes(t)&&r.set("Access-Control-Allow-Origin",t);const n=e.headers.get("host"),i=new URLSearchParams(e.url.slice(1));!n||[`localhost:${SERVER_PORT}`,`host.docker.internal:${SERVER_PORT}`].includes(n)||r.get("Access-Control-Allow-Origin")?"GET"===e.method&&i.get("q")?this.handleQuery(e,{query:i.get("q")??"",...i.get("d")&&{depth:Number(i.get("d"))},...i.get("r")&&{radius:Number(i.get("r"))}},r).catch((async t=>{await this.handleError(e,t.message??t,r)})):this.handleNotFound(e,r):this.handleNotAcceptable(e,r)}}},_dec=Memoize({ttl:432e5,resolver:t=>`${t.query}#${t.depth??EgoGraph.DEFAULT_GRAPH_DEPTH}#${t.pattern??EgoGraph.DEFAULT_SEARCH_PATTERN}#${t.radius??EgoGraph.DEFAULT_GRAPH_RADIUS}`,onAdded:t=>{console.log(`query="${bold(t.split("#")[0])}" added to cache`)},onFound:t=>{console.log(`query="${bold(t.split("#")[0])}" served from cache`)}}),_applyDecoratedDescriptor(_class.prototype,"graph",[_dec],Object.getOwnPropertyDescriptor(_class.prototype,"graph"),_class.prototype),_dec1=Try({catch:["BrokenPipe"],log:!0}),_applyDecoratedDescriptor(_class.prototype,"respond",[_dec1],Object.getOwnPropertyDescriptor(_class.prototype,"respond"),_class.prototype),_dec2=RateLimit({rate:50}),_applyDecoratedDescriptor(_class.prototype,"handleQuery",[_dec2],Object.getOwnPropertyDescriptor(_class.prototype,"handleQuery"),_class.prototype),_class);(new EgoNet).startServer();
+function _applyDecoratedDescriptor(target, property, decorators, descriptor, context) {
+    var desc = {
+    };
+    Object.keys(descriptor).forEach(function(key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+    if ("value" in desc || desc.initializer) {
+        desc.writable = true;
+    }
+    desc = decorators.slice().reverse().reduce(function(desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+    if (desc.initializer === void 0) {
+        Object.defineProperty(target, property, desc);
+        desc = null;
+    }
+    return desc;
+}
+var _class, _dec, _dec1, _dec2, _dec3;
+const SERVER_HOST = "0.0.0.0";
+const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
+const ALLOWED_ORIGINS = [
+    "https://ego.jveres.me"
+];
+const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000;
+var exports = {
+}, _dewExec = false;
+function dew() {
+    if (_dewExec) return exports;
+    _dewExec = true;
+    exports = function eventify(subject) {
+        validateSubject(subject);
+        var eventsStorage = createEventsStorage(subject);
+        subject.on = eventsStorage.on;
+        subject.off = eventsStorage.off;
+        subject.fire = eventsStorage.fire;
+        return subject;
+    };
+    function createEventsStorage(subject) {
+        var registeredEvents = Object.create(null);
+        return {
+            on: function(eventName, callback, ctx) {
+                if (typeof callback !== 'function') {
+                    throw new Error('callback is expected to be a function');
+                }
+                var handlers = registeredEvents[eventName];
+                if (!handlers) {
+                    handlers = registeredEvents[eventName] = [];
+                }
+                handlers.push({
+                    callback: callback,
+                    ctx: ctx
+                });
+                return subject;
+            },
+            off: function(eventName, callback) {
+                var wantToRemoveAll = typeof eventName === 'undefined';
+                if (wantToRemoveAll) {
+                    registeredEvents = Object.create(null);
+                    return subject;
+                }
+                if (registeredEvents[eventName]) {
+                    var deleteAllCallbacksForEvent = typeof callback !== 'function';
+                    if (deleteAllCallbacksForEvent) {
+                        delete registeredEvents[eventName];
+                    } else {
+                        var callbacks = registeredEvents[eventName];
+                        for(var i = 0; i < callbacks.length; ++i){
+                            if (callbacks[i].callback === callback) {
+                                callbacks.splice(i, 1);
+                            }
+                        }
+                    }
+                }
+                return subject;
+            },
+            fire: function(eventName) {
+                var callbacks = registeredEvents[eventName];
+                if (!callbacks) {
+                    return subject;
+                }
+                var fireArguments;
+                if (arguments.length > 1) {
+                    fireArguments = Array.prototype.splice.call(arguments, 1);
+                }
+                for(var i = 0; i < callbacks.length; ++i){
+                    var callbackInfo = callbacks[i];
+                    callbackInfo.callback.apply(callbackInfo.ctx, fireArguments);
+                }
+                return subject;
+            }
+        };
+    }
+    function validateSubject(subject) {
+        if (!subject) {
+            throw new Error('Eventify cannot use falsy object as events subject');
+        }
+        var reservedWords = [
+            'on',
+            'fire',
+            'off'
+        ];
+        for(var i = 0; i < reservedWords.length; ++i){
+            if (subject.hasOwnProperty(reservedWords[i])) {
+                throw new Error("Subject cannot be eventified, since it already has property '" + reservedWords[i] + "'");
+            }
+        }
+    }
+    return exports;
+}
+var exports1 = {
+}, _dewExec1 = false;
+var _global = typeof globalThis !== "undefined" ? globalThis : typeof self !== "undefined" ? self : global;
+function dew1() {
+    if (_dewExec1) return exports1;
+    _dewExec1 = true;
+    exports1 = createGraph;
+    var eventify = dew();
+    function createGraph(options) {
+        options = options || {
+        };
+        if ('uniqueLinkId' in options) {
+            console.warn('ngraph.graph: Starting from version 0.14 `uniqueLinkId` is deprecated.\n' + 'Use `multigraph` option instead\n', '\n', 'Note: there is also change in default behavior: From now on each graph\n' + 'is considered to be not a multigraph by default (each edge is unique).');
+            options.multigraph = options.uniqueLinkId;
+        }
+        if (options.multigraph === undefined) options.multigraph = false;
+        if (typeof Map !== 'function') {
+            throw new Error('ngraph.graph requires `Map` to be defined. Please polyfill it before using ngraph');
+        }
+        var nodes = new Map();
+        var links = [], multiEdges = {
+        }, suspendEvents = 0, createLink = options.multigraph ? createUniqueLink : createSingleLink, changes = [], recordLinkChange = noop, recordNodeChange = noop, enterModification = noop, exitModification = noop;
+        var graphPart = {
+            addNode: addNode,
+            addLink: addLink,
+            removeLink: removeLink,
+            removeNode: removeNode,
+            getNode: getNode,
+            getNodeCount: getNodeCount,
+            getLinkCount: getLinkCount,
+            getLinksCount: getLinkCount,
+            getNodesCount: getNodeCount,
+            getLinks: getLinks,
+            forEachNode: forEachNode,
+            forEachLinkedNode: forEachLinkedNode,
+            forEachLink: forEachLink,
+            beginUpdate: enterModification,
+            endUpdate: exitModification,
+            clear: clear,
+            hasLink: getLink,
+            hasNode: getNode,
+            getLink: getLink
+        };
+        eventify(graphPart);
+        monitorSubscribers();
+        return graphPart;
+        function monitorSubscribers() {
+            var realOn = graphPart.on;
+            graphPart.on = on;
+            function on() {
+                graphPart.beginUpdate = enterModification = enterModificationReal;
+                graphPart.endUpdate = exitModification = exitModificationReal;
+                recordLinkChange = recordLinkChangeReal;
+                recordNodeChange = recordNodeChangeReal;
+                graphPart.on = realOn;
+                return realOn.apply(graphPart, arguments);
+            }
+        }
+        function recordLinkChangeReal(link, changeType) {
+            changes.push({
+                link: link,
+                changeType: changeType
+            });
+        }
+        function recordNodeChangeReal(node, changeType) {
+            changes.push({
+                node: node,
+                changeType: changeType
+            });
+        }
+        function addNode(nodeId, data) {
+            if (nodeId === undefined) {
+                throw new Error('Invalid node identifier');
+            }
+            enterModification();
+            var node = getNode(nodeId);
+            if (!node) {
+                node = new Node1(nodeId, data);
+                recordNodeChange(node, 'add');
+            } else {
+                node.data = data;
+                recordNodeChange(node, 'update');
+            }
+            nodes.set(nodeId, node);
+            exitModification();
+            return node;
+        }
+        function getNode(nodeId) {
+            return nodes.get(nodeId);
+        }
+        function removeNode(nodeId) {
+            var node = getNode(nodeId);
+            if (!node) {
+                return false;
+            }
+            enterModification();
+            var prevLinks = node.links;
+            if (prevLinks) {
+                node.links = null;
+                for(var i = 0; i < prevLinks.length; ++i){
+                    removeLink(prevLinks[i]);
+                }
+            }
+            nodes.delete(nodeId);
+            recordNodeChange(node, 'remove');
+            exitModification();
+            return true;
+        }
+        function addLink(fromId, toId, data) {
+            enterModification();
+            var fromNode = getNode(fromId) || addNode(fromId);
+            var toNode = getNode(toId) || addNode(toId);
+            var link = createLink(fromId, toId, data);
+            links.push(link);
+            addLinkToNode(fromNode, link);
+            if (fromId !== toId) {
+                addLinkToNode(toNode, link);
+            }
+            recordLinkChange(link, 'add');
+            exitModification();
+            return link;
+        }
+        function createSingleLink(fromId, toId, data) {
+            var linkId = makeLinkId(fromId, toId);
+            return new Link(fromId, toId, data, linkId);
+        }
+        function createUniqueLink(fromId, toId, data) {
+            var linkId = makeLinkId(fromId, toId);
+            var isMultiEdge = multiEdges.hasOwnProperty(linkId);
+            if (isMultiEdge || getLink(fromId, toId)) {
+                if (!isMultiEdge) {
+                    multiEdges[linkId] = 0;
+                }
+                var suffix = '@' + ++multiEdges[linkId];
+                linkId = makeLinkId(fromId + suffix, toId + suffix);
+            }
+            return new Link(fromId, toId, data, linkId);
+        }
+        function getNodeCount() {
+            return nodes.size;
+        }
+        function getLinkCount() {
+            return links.length;
+        }
+        function getLinks(nodeId) {
+            var node = getNode(nodeId);
+            return node ? node.links : null;
+        }
+        function removeLink(link) {
+            if (!link) {
+                return false;
+            }
+            var idx = indexOfElementInArray(link, links);
+            if (idx < 0) {
+                return false;
+            }
+            enterModification();
+            links.splice(idx, 1);
+            var fromNode = getNode(link.fromId);
+            var toNode = getNode(link.toId);
+            if (fromNode) {
+                idx = indexOfElementInArray(link, fromNode.links);
+                if (idx >= 0) {
+                    fromNode.links.splice(idx, 1);
+                }
+            }
+            if (toNode) {
+                idx = indexOfElementInArray(link, toNode.links);
+                if (idx >= 0) {
+                    toNode.links.splice(idx, 1);
+                }
+            }
+            recordLinkChange(link, 'remove');
+            exitModification();
+            return true;
+        }
+        function getLink(fromNodeId, toNodeId) {
+            var node = getNode(fromNodeId), i;
+            if (!node || !node.links) {
+                return null;
+            }
+            for(i = 0; i < node.links.length; ++i){
+                var link = node.links[i];
+                if (link.fromId === fromNodeId && link.toId === toNodeId) {
+                    return link;
+                }
+            }
+            return null;
+        }
+        function clear() {
+            enterModification();
+            forEachNode(function(node) {
+                removeNode(node.id);
+            });
+            exitModification();
+        }
+        function forEachLink(callback) {
+            var i, length;
+            if (typeof callback === 'function') {
+                for(i = 0, length = links.length; i < length; ++i){
+                    callback(links[i]);
+                }
+            }
+        }
+        function forEachLinkedNode(nodeId, callback, oriented) {
+            var node = getNode(nodeId);
+            if (node && node.links && typeof callback === 'function') {
+                if (oriented) {
+                    return forEachOrientedLink(node.links, nodeId, callback);
+                } else {
+                    return forEachNonOrientedLink(node.links, nodeId, callback);
+                }
+            }
+        }
+        function forEachNonOrientedLink(links1, nodeId, callback) {
+            var quitFast;
+            for(var i = 0; i < links1.length; ++i){
+                var link = links1[i];
+                var linkedNodeId = link.fromId === nodeId ? link.toId : link.fromId;
+                quitFast = callback(nodes.get(linkedNodeId), link);
+                if (quitFast) {
+                    return true;
+                }
+            }
+        }
+        function forEachOrientedLink(links1, nodeId, callback) {
+            var quitFast;
+            for(var i = 0; i < links1.length; ++i){
+                var link = links1[i];
+                if (link.fromId === nodeId) {
+                    quitFast = callback(nodes.get(link.toId), link);
+                    if (quitFast) {
+                        return true;
+                    }
+                }
+            }
+        }
+        function noop() {
+        }
+        function enterModificationReal() {
+            suspendEvents += 1;
+        }
+        function exitModificationReal() {
+            suspendEvents -= 1;
+            if (suspendEvents === 0 && changes.length > 0) {
+                graphPart.fire('changed', changes);
+                changes.length = 0;
+            }
+        }
+        function forEachNode(callback) {
+            if (typeof callback !== 'function') {
+                throw new Error('Function is expected to iterate over graph nodes. You passed ' + callback);
+            }
+            var valuesIterator = nodes.values();
+            var nextValue = valuesIterator.next();
+            while(!nextValue.done){
+                if (callback(nextValue.value)) {
+                    return true;
+                }
+                nextValue = valuesIterator.next();
+            }
+        }
+    }
+    function indexOfElementInArray(element, array) {
+        if (!array) return -1;
+        if (array.indexOf) {
+            return array.indexOf(element);
+        }
+        var len = array.length, i;
+        for(i = 0; i < len; i += 1){
+            if (array[i] === element) {
+                return i;
+            }
+        }
+        return -1;
+    }
+    function Node1(id, data) {
+        (this || _global).id = id;
+        (this || _global).links = null;
+        (this || _global).data = data;
+    }
+    function addLinkToNode(node, link) {
+        if (node.links) {
+            node.links.push(link);
+        } else {
+            node.links = [
+                link
+            ];
+        }
+    }
+    function Link(fromId, toId, data, id) {
+        (this || _global).fromId = fromId;
+        (this || _global).toId = toId;
+        (this || _global).data = data;
+        (this || _global).id = id;
+    }
+    function makeLinkId(fromId, toId) {
+        return fromId.toString() + '👉 ' + toId.toString();
+    }
+    return exports1;
+}
+const __default = dew1();
+var Status;
+(function(Status1) {
+    Status1[Status1["Continue"] = 100] = "Continue";
+    Status1[Status1["SwitchingProtocols"] = 101] = "SwitchingProtocols";
+    Status1[Status1["Processing"] = 102] = "Processing";
+    Status1[Status1["EarlyHints"] = 103] = "EarlyHints";
+    Status1[Status1["OK"] = 200] = "OK";
+    Status1[Status1["Created"] = 201] = "Created";
+    Status1[Status1["Accepted"] = 202] = "Accepted";
+    Status1[Status1["NonAuthoritativeInfo"] = 203] = "NonAuthoritativeInfo";
+    Status1[Status1["NoContent"] = 204] = "NoContent";
+    Status1[Status1["ResetContent"] = 205] = "ResetContent";
+    Status1[Status1["PartialContent"] = 206] = "PartialContent";
+    Status1[Status1["MultiStatus"] = 207] = "MultiStatus";
+    Status1[Status1["AlreadyReported"] = 208] = "AlreadyReported";
+    Status1[Status1["IMUsed"] = 226] = "IMUsed";
+    Status1[Status1["MultipleChoices"] = 300] = "MultipleChoices";
+    Status1[Status1["MovedPermanently"] = 301] = "MovedPermanently";
+    Status1[Status1["Found"] = 302] = "Found";
+    Status1[Status1["SeeOther"] = 303] = "SeeOther";
+    Status1[Status1["NotModified"] = 304] = "NotModified";
+    Status1[Status1["UseProxy"] = 305] = "UseProxy";
+    Status1[Status1["TemporaryRedirect"] = 307] = "TemporaryRedirect";
+    Status1[Status1["PermanentRedirect"] = 308] = "PermanentRedirect";
+    Status1[Status1["BadRequest"] = 400] = "BadRequest";
+    Status1[Status1["Unauthorized"] = 401] = "Unauthorized";
+    Status1[Status1["PaymentRequired"] = 402] = "PaymentRequired";
+    Status1[Status1["Forbidden"] = 403] = "Forbidden";
+    Status1[Status1["NotFound"] = 404] = "NotFound";
+    Status1[Status1["MethodNotAllowed"] = 405] = "MethodNotAllowed";
+    Status1[Status1["NotAcceptable"] = 406] = "NotAcceptable";
+    Status1[Status1["ProxyAuthRequired"] = 407] = "ProxyAuthRequired";
+    Status1[Status1["RequestTimeout"] = 408] = "RequestTimeout";
+    Status1[Status1["Conflict"] = 409] = "Conflict";
+    Status1[Status1["Gone"] = 410] = "Gone";
+    Status1[Status1["LengthRequired"] = 411] = "LengthRequired";
+    Status1[Status1["PreconditionFailed"] = 412] = "PreconditionFailed";
+    Status1[Status1["RequestEntityTooLarge"] = 413] = "RequestEntityTooLarge";
+    Status1[Status1["RequestURITooLong"] = 414] = "RequestURITooLong";
+    Status1[Status1["UnsupportedMediaType"] = 415] = "UnsupportedMediaType";
+    Status1[Status1["RequestedRangeNotSatisfiable"] = 416] = "RequestedRangeNotSatisfiable";
+    Status1[Status1["ExpectationFailed"] = 417] = "ExpectationFailed";
+    Status1[Status1["Teapot"] = 418] = "Teapot";
+    Status1[Status1["MisdirectedRequest"] = 421] = "MisdirectedRequest";
+    Status1[Status1["UnprocessableEntity"] = 422] = "UnprocessableEntity";
+    Status1[Status1["Locked"] = 423] = "Locked";
+    Status1[Status1["FailedDependency"] = 424] = "FailedDependency";
+    Status1[Status1["TooEarly"] = 425] = "TooEarly";
+    Status1[Status1["UpgradeRequired"] = 426] = "UpgradeRequired";
+    Status1[Status1["PreconditionRequired"] = 428] = "PreconditionRequired";
+    Status1[Status1["TooManyRequests"] = 429] = "TooManyRequests";
+    Status1[Status1["RequestHeaderFieldsTooLarge"] = 431] = "RequestHeaderFieldsTooLarge";
+    Status1[Status1["UnavailableForLegalReasons"] = 451] = "UnavailableForLegalReasons";
+    Status1[Status1["InternalServerError"] = 500] = "InternalServerError";
+    Status1[Status1["NotImplemented"] = 501] = "NotImplemented";
+    Status1[Status1["BadGateway"] = 502] = "BadGateway";
+    Status1[Status1["ServiceUnavailable"] = 503] = "ServiceUnavailable";
+    Status1[Status1["GatewayTimeout"] = 504] = "GatewayTimeout";
+    Status1[Status1["HTTPVersionNotSupported"] = 505] = "HTTPVersionNotSupported";
+    Status1[Status1["VariantAlsoNegotiates"] = 506] = "VariantAlsoNegotiates";
+    Status1[Status1["InsufficientStorage"] = 507] = "InsufficientStorage";
+    Status1[Status1["LoopDetected"] = 508] = "LoopDetected";
+    Status1[Status1["NotExtended"] = 510] = "NotExtended";
+    Status1[Status1["NetworkAuthenticationRequired"] = 511] = "NetworkAuthenticationRequired";
+})(Status || (Status = {
+}));
+const STATUS_TEXT = new Map([
+    [
+        Status.Continue,
+        "Continue"
+    ],
+    [
+        Status.SwitchingProtocols,
+        "Switching Protocols"
+    ],
+    [
+        Status.Processing,
+        "Processing"
+    ],
+    [
+        Status.EarlyHints,
+        "Early Hints"
+    ],
+    [
+        Status.OK,
+        "OK"
+    ],
+    [
+        Status.Created,
+        "Created"
+    ],
+    [
+        Status.Accepted,
+        "Accepted"
+    ],
+    [
+        Status.NonAuthoritativeInfo,
+        "Non-Authoritative Information"
+    ],
+    [
+        Status.NoContent,
+        "No Content"
+    ],
+    [
+        Status.ResetContent,
+        "Reset Content"
+    ],
+    [
+        Status.PartialContent,
+        "Partial Content"
+    ],
+    [
+        Status.MultiStatus,
+        "Multi-Status"
+    ],
+    [
+        Status.AlreadyReported,
+        "Already Reported"
+    ],
+    [
+        Status.IMUsed,
+        "IM Used"
+    ],
+    [
+        Status.MultipleChoices,
+        "Multiple Choices"
+    ],
+    [
+        Status.MovedPermanently,
+        "Moved Permanently"
+    ],
+    [
+        Status.Found,
+        "Found"
+    ],
+    [
+        Status.SeeOther,
+        "See Other"
+    ],
+    [
+        Status.NotModified,
+        "Not Modified"
+    ],
+    [
+        Status.UseProxy,
+        "Use Proxy"
+    ],
+    [
+        Status.TemporaryRedirect,
+        "Temporary Redirect"
+    ],
+    [
+        Status.PermanentRedirect,
+        "Permanent Redirect"
+    ],
+    [
+        Status.BadRequest,
+        "Bad Request"
+    ],
+    [
+        Status.Unauthorized,
+        "Unauthorized"
+    ],
+    [
+        Status.PaymentRequired,
+        "Payment Required"
+    ],
+    [
+        Status.Forbidden,
+        "Forbidden"
+    ],
+    [
+        Status.NotFound,
+        "Not Found"
+    ],
+    [
+        Status.MethodNotAllowed,
+        "Method Not Allowed"
+    ],
+    [
+        Status.NotAcceptable,
+        "Not Acceptable"
+    ],
+    [
+        Status.ProxyAuthRequired,
+        "Proxy Authentication Required"
+    ],
+    [
+        Status.RequestTimeout,
+        "Request Timeout"
+    ],
+    [
+        Status.Conflict,
+        "Conflict"
+    ],
+    [
+        Status.Gone,
+        "Gone"
+    ],
+    [
+        Status.LengthRequired,
+        "Length Required"
+    ],
+    [
+        Status.PreconditionFailed,
+        "Precondition Failed"
+    ],
+    [
+        Status.RequestEntityTooLarge,
+        "Request Entity Too Large"
+    ],
+    [
+        Status.RequestURITooLong,
+        "Request URI Too Long"
+    ],
+    [
+        Status.UnsupportedMediaType,
+        "Unsupported Media Type"
+    ],
+    [
+        Status.RequestedRangeNotSatisfiable,
+        "Requested Range Not Satisfiable"
+    ],
+    [
+        Status.ExpectationFailed,
+        "Expectation Failed"
+    ],
+    [
+        Status.Teapot,
+        "I'm a teapot"
+    ],
+    [
+        Status.MisdirectedRequest,
+        "Misdirected Request"
+    ],
+    [
+        Status.UnprocessableEntity,
+        "Unprocessable Entity"
+    ],
+    [
+        Status.Locked,
+        "Locked"
+    ],
+    [
+        Status.FailedDependency,
+        "Failed Dependency"
+    ],
+    [
+        Status.TooEarly,
+        "Too Early"
+    ],
+    [
+        Status.UpgradeRequired,
+        "Upgrade Required"
+    ],
+    [
+        Status.PreconditionRequired,
+        "Precondition Required"
+    ],
+    [
+        Status.TooManyRequests,
+        "Too Many Requests"
+    ],
+    [
+        Status.RequestHeaderFieldsTooLarge,
+        "Request Header Fields Too Large"
+    ],
+    [
+        Status.UnavailableForLegalReasons,
+        "Unavailable For Legal Reasons"
+    ],
+    [
+        Status.InternalServerError,
+        "Internal Server Error"
+    ],
+    [
+        Status.NotImplemented,
+        "Not Implemented"
+    ],
+    [
+        Status.BadGateway,
+        "Bad Gateway"
+    ],
+    [
+        Status.ServiceUnavailable,
+        "Service Unavailable"
+    ],
+    [
+        Status.GatewayTimeout,
+        "Gateway Timeout"
+    ],
+    [
+        Status.HTTPVersionNotSupported,
+        "HTTP Version Not Supported"
+    ],
+    [
+        Status.VariantAlsoNegotiates,
+        "Variant Also Negotiates"
+    ],
+    [
+        Status.InsufficientStorage,
+        "Insufficient Storage"
+    ],
+    [
+        Status.LoopDetected,
+        "Loop Detected"
+    ],
+    [
+        Status.NotExtended,
+        "Not Extended"
+    ],
+    [
+        Status.NetworkAuthenticationRequired,
+        "Network Authentication Required"
+    ], 
+]);
+const noColor = globalThis.Deno?.noColor ?? true;
+let enabled = !noColor;
+function code(open, close) {
+    return {
+        open: `\x1b[${open.join(";")}m`,
+        close: `\x1b[${close}m`,
+        regexp: new RegExp(`\\x1b\\[${close}m`, "g")
+    };
+}
+function run(str, code1) {
+    return enabled ? `${code1.open}${str.replace(code1.regexp, code1.open)}${code1.close}` : str;
+}
+function bold(str) {
+    return run(str, code([
+        1
+    ], 22));
+}
+function underline(str) {
+    return run(str, code([
+        4
+    ], 24));
+}
+function green(str) {
+    return run(str, code([
+        32
+    ], 39));
+}
+function brightBlack(str) {
+    return run(str, code([
+        90
+    ], 39));
+}
+function brightRed(str) {
+    return run(str, code([
+        91
+    ], 39));
+}
+function brightGreen(str) {
+    return run(str, code([
+        92
+    ], 39));
+}
+function brightYellow(str) {
+    return run(str, code([
+        93
+    ], 39));
+}
+function brightBlue(str) {
+    return run(str, code([
+        94
+    ], 39));
+}
+function brightMagenta(str) {
+    return run(str, code([
+        95
+    ], 39));
+}
+function brightCyan(str) {
+    return run(str, code([
+        96
+    ], 39));
+}
+function clampAndTruncate(n, max = 255, min = 0) {
+    return Math.trunc(Math.max(Math.min(n, max), min));
+}
+const ANSI_PATTERN = new RegExp([
+    "[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[-a-zA-Z\\d\\/#&.:=?%@~_]*)*)?\\u0007)",
+    "(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PR-TZcf-ntqry=><~]))", 
+].join("|"), "g");
+function stripColor(string) {
+    return string.replace(ANSI_PATTERN, "");
+}
+function Timeout(timeout = 10000) {
+    return function(target, propertyKey, descriptor) {
+        const originalFn = descriptor.value;
+        descriptor.value = async function(...args) {
+            try {
+                return await timeoutAsync.apply(this, [
+                    originalFn,
+                    args,
+                    timeout, 
+                ]);
+            } catch (e) {
+                if (e.message === "timeout") {
+                    e.message = `${bold("Timeout (" + String(timeout) + "ms")}) exceeded for ${brightMagenta(propertyKey + "(…)")}`;
+                    Error.captureStackTrace(e, descriptor.value);
+                }
+                throw e;
+            }
+        };
+        return descriptor;
+    };
+}
+function timeoutAsync(fn, args, timeout) {
+    let id;
+    return Promise.race([
+        new Promise((_, reject)=>{
+            id = setTimeout(()=>{
+                clearTimeout(id);
+                reject(new Error("timeout"));
+            }, timeout);
+        }),
+        fn.apply(this, args), 
+    ]).then((result)=>{
+        clearTimeout(id);
+        return result;
+    });
+}
+var exports2 = {
+}, _dewExec2 = false;
+function dew2() {
+    if (_dewExec2) return exports2;
+    _dewExec2 = true;
+    function Denque(array, options) {
+        var options = options || {
+        };
+        this._head = 0;
+        this._tail = 0;
+        this._capacity = options.capacity;
+        this._capacityMask = 3;
+        this._list = new Array(4);
+        if (Array.isArray(array)) {
+            this._fromArray(array);
+        }
+    }
+    Denque.prototype.peekAt = function peekAt(index) {
+        var i = index;
+        if (i !== (i | 0)) {
+            return void 0;
+        }
+        var len = this.size();
+        if (i >= len || i < -len) return undefined;
+        if (i < 0) i += len;
+        i = this._head + i & this._capacityMask;
+        return this._list[i];
+    };
+    Denque.prototype.get = function get(i) {
+        return this.peekAt(i);
+    };
+    Denque.prototype.peek = function peek() {
+        if (this._head === this._tail) return undefined;
+        return this._list[this._head];
+    };
+    Denque.prototype.peekFront = function peekFront() {
+        return this.peek();
+    };
+    Denque.prototype.peekBack = function peekBack() {
+        return this.peekAt(-1);
+    };
+    Object.defineProperty(Denque.prototype, 'length', {
+        get: function length() {
+            return this.size();
+        }
+    });
+    Denque.prototype.size = function size() {
+        if (this._head === this._tail) return 0;
+        if (this._head < this._tail) return this._tail - this._head;
+        else return this._capacityMask + 1 - (this._head - this._tail);
+    };
+    Denque.prototype.unshift = function unshift(item) {
+        if (item === undefined) return this.size();
+        var len = this._list.length;
+        this._head = this._head - 1 + len & this._capacityMask;
+        this._list[this._head] = item;
+        if (this._tail === this._head) this._growArray();
+        if (this._capacity && this.size() > this._capacity) this.pop();
+        if (this._head < this._tail) return this._tail - this._head;
+        else return this._capacityMask + 1 - (this._head - this._tail);
+    };
+    Denque.prototype.shift = function shift() {
+        var head = this._head;
+        if (head === this._tail) return undefined;
+        var item = this._list[head];
+        this._list[head] = undefined;
+        this._head = head + 1 & this._capacityMask;
+        if (head < 2 && this._tail > 10000 && this._tail <= this._list.length >>> 2) this._shrinkArray();
+        return item;
+    };
+    Denque.prototype.push = function push(item) {
+        if (item === undefined) return this.size();
+        var tail = this._tail;
+        this._list[tail] = item;
+        this._tail = tail + 1 & this._capacityMask;
+        if (this._tail === this._head) {
+            this._growArray();
+        }
+        if (this._capacity && this.size() > this._capacity) {
+            this.shift();
+        }
+        if (this._head < this._tail) return this._tail - this._head;
+        else return this._capacityMask + 1 - (this._head - this._tail);
+    };
+    Denque.prototype.pop = function pop() {
+        var tail = this._tail;
+        if (tail === this._head) return undefined;
+        var len = this._list.length;
+        this._tail = tail - 1 + len & this._capacityMask;
+        var item = this._list[this._tail];
+        this._list[this._tail] = undefined;
+        if (this._head < 2 && tail > 10000 && tail <= len >>> 2) this._shrinkArray();
+        return item;
+    };
+    Denque.prototype.removeOne = function removeOne(index) {
+        var i = index;
+        if (i !== (i | 0)) {
+            return void 0;
+        }
+        if (this._head === this._tail) return void 0;
+        var size1 = this.size();
+        var len = this._list.length;
+        if (i >= size1 || i < -size1) return void 0;
+        if (i < 0) i += size1;
+        i = this._head + i & this._capacityMask;
+        var item = this._list[i];
+        var k;
+        if (index < size1 / 2) {
+            for(k = index; k > 0; k--){
+                this._list[i] = this._list[i = i - 1 + len & this._capacityMask];
+            }
+            this._list[i] = void 0;
+            this._head = this._head + 1 + len & this._capacityMask;
+        } else {
+            for(k = size1 - 1 - index; k > 0; k--){
+                this._list[i] = this._list[i = i + 1 + len & this._capacityMask];
+            }
+            this._list[i] = void 0;
+            this._tail = this._tail - 1 + len & this._capacityMask;
+        }
+        return item;
+    };
+    Denque.prototype.remove = function remove(index, count) {
+        var i = index;
+        var removed;
+        var del_count = count;
+        if (i !== (i | 0)) {
+            return void 0;
+        }
+        if (this._head === this._tail) return void 0;
+        var size1 = this.size();
+        var len = this._list.length;
+        if (i >= size1 || i < -size1 || count < 1) return void 0;
+        if (i < 0) i += size1;
+        if (count === 1 || !count) {
+            removed = new Array(1);
+            removed[0] = this.removeOne(i);
+            return removed;
+        }
+        if (i === 0 && i + count >= size1) {
+            removed = this.toArray();
+            this.clear();
+            return removed;
+        }
+        if (i + count > size1) count = size1 - i;
+        var k;
+        removed = new Array(count);
+        for(k = 0; k < count; k++){
+            removed[k] = this._list[this._head + i + k & this._capacityMask];
+        }
+        i = this._head + i & this._capacityMask;
+        if (index + count === size1) {
+            this._tail = this._tail - count + len & this._capacityMask;
+            for(k = count; k > 0; k--){
+                this._list[i = i + 1 + len & this._capacityMask] = void 0;
+            }
+            return removed;
+        }
+        if (index === 0) {
+            this._head = this._head + count + len & this._capacityMask;
+            for(k = count - 1; k > 0; k--){
+                this._list[i = i + 1 + len & this._capacityMask] = void 0;
+            }
+            return removed;
+        }
+        if (i < size1 / 2) {
+            this._head = this._head + index + count + len & this._capacityMask;
+            for(k = index; k > 0; k--){
+                this.unshift(this._list[i = i - 1 + len & this._capacityMask]);
+            }
+            i = this._head - 1 + len & this._capacityMask;
+            while(del_count > 0){
+                this._list[i = i - 1 + len & this._capacityMask] = void 0;
+                del_count--;
+            }
+            if (index < 0) this._tail = i;
+        } else {
+            this._tail = i;
+            i = i + count + len & this._capacityMask;
+            for(k = size1 - (count + index); k > 0; k--){
+                this.push(this._list[i++]);
+            }
+            i = this._tail;
+            while(del_count > 0){
+                this._list[i = i + 1 + len & this._capacityMask] = void 0;
+                del_count--;
+            }
+        }
+        if (this._head < 2 && this._tail > 10000 && this._tail <= len >>> 2) this._shrinkArray();
+        return removed;
+    };
+    Denque.prototype.splice = function splice(index, count) {
+        var i = index;
+        if (i !== (i | 0)) {
+            return void 0;
+        }
+        var size1 = this.size();
+        if (i < 0) i += size1;
+        if (i > size1) return void 0;
+        if (arguments.length > 2) {
+            var k;
+            var temp;
+            var removed;
+            var arg_len = arguments.length;
+            var len = this._list.length;
+            var arguments_index = 2;
+            if (!size1 || i < size1 / 2) {
+                temp = new Array(i);
+                for(k = 0; k < i; k++){
+                    temp[k] = this._list[this._head + k & this._capacityMask];
+                }
+                if (count === 0) {
+                    removed = [];
+                    if (i > 0) {
+                        this._head = this._head + i + len & this._capacityMask;
+                    }
+                } else {
+                    removed = this.remove(i, count);
+                    this._head = this._head + i + len & this._capacityMask;
+                }
+                while(arg_len > arguments_index){
+                    this.unshift(arguments[--arg_len]);
+                }
+                for(k = i; k > 0; k--){
+                    this.unshift(temp[k - 1]);
+                }
+            } else {
+                temp = new Array(size1 - (i + count));
+                var leng = temp.length;
+                for(k = 0; k < leng; k++){
+                    temp[k] = this._list[this._head + i + count + k & this._capacityMask];
+                }
+                if (count === 0) {
+                    removed = [];
+                    if (i != size1) {
+                        this._tail = this._head + i + len & this._capacityMask;
+                    }
+                } else {
+                    removed = this.remove(i, count);
+                    this._tail = this._tail - leng + len & this._capacityMask;
+                }
+                while(arguments_index < arg_len){
+                    this.push(arguments[arguments_index++]);
+                }
+                for(k = 0; k < leng; k++){
+                    this.push(temp[k]);
+                }
+            }
+            return removed;
+        } else {
+            return this.remove(i, count);
+        }
+    };
+    Denque.prototype.clear = function clear() {
+        this._head = 0;
+        this._tail = 0;
+    };
+    Denque.prototype.isEmpty = function isEmpty() {
+        return this._head === this._tail;
+    };
+    Denque.prototype.toArray = function toArray() {
+        return this._copyArray(false);
+    };
+    Denque.prototype._fromArray = function _fromArray(array) {
+        for(var i = 0; i < array.length; i++)this.push(array[i]);
+    };
+    Denque.prototype._copyArray = function _copyArray(fullCopy) {
+        var newArray = [];
+        var list = this._list;
+        var len = list.length;
+        var i;
+        if (fullCopy || this._head > this._tail) {
+            for(i = this._head; i < len; i++)newArray.push(list[i]);
+            for(i = 0; i < this._tail; i++)newArray.push(list[i]);
+        } else {
+            for(i = this._head; i < this._tail; i++)newArray.push(list[i]);
+        }
+        return newArray;
+    };
+    Denque.prototype._growArray = function _growArray() {
+        if (this._head) {
+            this._list = this._copyArray(true);
+            this._head = 0;
+        }
+        this._tail = this._list.length;
+        this._list.length *= 2;
+        this._capacityMask = this._capacityMask << 1 | 1;
+    };
+    Denque.prototype._shrinkArray = function _shrinkArray() {
+        this._list.length >>>= 1;
+        this._capacityMask >>>= 1;
+    };
+    exports2 = Denque;
+    return exports2;
+}
+const __default1 = dew2();
+const sleep = (ms)=>new Promise((resolve)=>setTimeout(resolve, ms)
+    )
+;
+class LruCache {
+    values = new Map();
+    maxEntries = 500;
+    get(key) {
+        const entry = this.values.get(key);
+        if (entry !== undefined) {
+            this.values.delete(key);
+            this.values.set(key, entry);
+        }
+        return entry;
+    }
+    has(key) {
+        return this.values.has(key);
+    }
+    put(key, value) {
+        if (this.values.size >= this.maxEntries) {
+            const keyToDelete = this.values.keys().next().value;
+            this.values.delete(keyToDelete);
+        }
+        this.values.set(key, value);
+    }
+}
+var BackOffPolicy;
+(function(BackOffPolicy1) {
+    BackOffPolicy1["FixedBackOffPolicy"] = "FixedBackOffPolicy";
+    BackOffPolicy1["ExponentialBackOffPolicy"] = "ExponentialBackOffPolicy";
+})(BackOffPolicy || (BackOffPolicy = {
+}));
+function Retry(options = {
+    maxAttempts: 3
+}) {
+    return function(target, propertyKey, descriptor) {
+        const originalFn = descriptor.value;
+        if (options.backOffPolicy === BackOffPolicy.ExponentialBackOffPolicy) {
+            !options.backOff && (options.backOff = 1000);
+            options.exponentialOption = {
+                ...{
+                    maxInterval: 2000,
+                    multiplier: 2
+                },
+                ...options.exponentialOption
+            };
+        }
+        descriptor.value = async function(...args) {
+            try {
+                return await retryAsync.apply(this, [
+                    originalFn,
+                    args,
+                    options.maxAttempts,
+                    options.backOff,
+                    options.doRetry, 
+                ]);
+            } catch (e) {
+                if (e.message === "maxAttempts") {
+                    e.code = "429";
+                    e.message = `${brightRed("Failed")} for ${brightMagenta(propertyKey + "(…)")} for ${brightYellow(options.maxAttempts.toString())} times.`;
+                }
+                throw e;
+            }
+        };
+        return descriptor;
+    };
+    async function retryAsync(fn, args, maxAttempts, backOff, doRetry) {
+        try {
+            return await fn.apply(this, args);
+        } catch (e) {
+            if ((--maxAttempts) < 0) {
+                console.error(e?.message);
+                throw new Error("maxAttempts");
+            } else if (doRetry && !doRetry(e)) {
+                throw e;
+            }
+            if (backOff) {
+                await sleep(backOff);
+                if (options.backOffPolicy === BackOffPolicy.ExponentialBackOffPolicy && options.exponentialOption) {
+                    const newBackOff = backOff * options.exponentialOption.multiplier;
+                    backOff = newBackOff > options.exponentialOption.maxInterval ? options.exponentialOption.maxInterval : newBackOff;
+                }
+            }
+            return retryAsync.apply(this, [
+                fn,
+                args,
+                maxAttempts,
+                backOff,
+                doRetry
+            ]);
+        }
+    }
+}
+function Trace(options = {
+    stack: false
+}) {
+    return function(target, propertyKey, descriptor) {
+        const originalFn = descriptor.value;
+        let lastFrom;
+        descriptor.value = async function(...args) {
+            const e = new Error();
+            Error.captureStackTrace(e, options.stack ? undefined : descriptor.value);
+            const from = options.stack ? "\n" + e.stack?.split("\n").slice(1).join("\n") : e.stack?.split("\n").slice(1)[0]?.replace("at", "").trim();
+            const p1 = performance.now();
+            console.log(`${brightMagenta(propertyKey + "(…)")} ${bold("called")} ${options.stack ? "" : "from"} ${brightCyan((from ?? lastFrom) ?? "unknown")}`);
+            if (from) lastFrom = from;
+            let result;
+            originalFn.constructor.name === "AsyncFunction" ? result = await originalFn.apply(this, args) : result = originalFn.apply(this, args);
+            console.log(`${brightMagenta(propertyKey + "(…)")} ${green("ended")} in ${brightYellow((performance.now() - p1).toFixed() + "ms")}`);
+            return result;
+        };
+        return descriptor;
+    };
+}
+function _applyDecoratedDescriptor1(target, property, decorators, descriptor, context) {
+    var desc = {
+    };
+    Object.keys(descriptor).forEach(function(key) {
+        desc[key] = descriptor[key];
+    });
+    desc.enumerable = !!desc.enumerable;
+    desc.configurable = !!desc.configurable;
+    if ("value" in desc || desc.initializer) {
+        desc.writable = true;
+    }
+    desc = decorators.slice().reverse().reduce(function(desc, decorator) {
+        return decorator(target, property, desc) || desc;
+    }, desc);
+    if (context && desc.initializer !== void 0) {
+        desc.value = desc.initializer ? desc.initializer.call(context) : void 0;
+        desc.initializer = undefined;
+    }
+    if (desc.initializer === void 0) {
+        Object.defineProperty(target, property, desc);
+        desc = null;
+    }
+    return desc;
+}
+var _class1, _dec4, _dec5, _dec6, _dec7;
+const fetchHeader = {
+    headers: {
+    }
+};
+const httpProxy = Deno.env.get("HTTP_PROXY");
+if (httpProxy) {
+    const url = new URL(httpProxy);
+    fetchHeader.headers = {
+        "Authorization": `Basic ${btoa(url.username + ":" + url.password)}`
+    };
+    console.info(`Using HTTP_PROXY (origin="${url.origin}", Authorization="Basic ***...***")`);
+}
+let EgoGraph = ((_class1 = class EgoGraph {
+    static DEFAULT_GRAPH_DEPTH = 1;
+    static DEFAULT_SEARCH_PATTERN = " vs ";
+    static DEFAULT_GRAPH_RADIUS = 10;
+    elapsedMs = 0;
+    maxDistance = Number.NEGATIVE_INFINITY;
+    constructor(options1 = {
+        query: ""
+    }){
+        this.graph = __default();
+        this.query = options1.query;
+        this.depth = options1.depth ?? EgoGraph.DEFAULT_GRAPH_DEPTH;
+        this.pattern = options1.pattern ?? EgoGraph.DEFAULT_SEARCH_PATTERN;
+        this.radius = options1.radius ?? EgoGraph.DEFAULT_GRAPH_RADIUS;
+    }
+    async fetchAutocomplete(term, maxCount) {
+        const q = term + this.pattern;
+        const res = await fetch(`http://suggestqueries.google.com/complete/search?&client=firefox&gl=us&hl=en&q=${encodeURIComponent(q)}`, fetchHeader);
+        if (res.status === Status.OK) {
+            const hits = await res.json();
+            const set = new Set();
+            for (const hit of hits[1].slice(0, maxCount)){
+                hit.split(this.pattern).slice(1).map((t)=>{
+                    if (!new RegExp("^[0-9.]+$").test(t)) {
+                        set.add(t);
+                    }
+                });
+            }
+            return set;
+        } else {
+            throw new Error(`Fetch error: ${res.status} ${res.statusText}`);
+        }
+    }
+    async build() {
+        if (this.query === "") return;
+        const t1 = performance.now();
+        this.graph.beginUpdate();
+        let sources = [
+            this.query
+        ];
+        let distances = [
+            0
+        ];
+        for(let depth = 0; depth < this.depth; depth++){
+            const nextSources = [];
+            const nextDistances = [];
+            for(let i = 0; i < sources.length; i++){
+                const srcDistance = distances[i];
+                if (srcDistance >= this.radius) continue;
+                const src = sources[i];
+                const targets = await this.fetchAutocomplete(src, this.radius - srcDistance);
+                if (!this.graph.getNode(src)) {
+                    this.graph.addNode(src, {
+                        count: 1,
+                        depth: src === this.query ? 0 : depth + 1
+                    });
+                }
+                let weight = targets.size;
+                let distance = 1;
+                targets.forEach((target)=>{
+                    const dist = srcDistance + distance;
+                    if (dist > this.maxDistance) this.maxDistance = dist;
+                    const targetNode = this.graph.getNode(target);
+                    if (!targetNode) {
+                        this.graph.addNode(target, {
+                            count: 1,
+                            depth: depth + 1
+                        });
+                        this.graph.addLink(src, target, {
+                            distance: dist,
+                            weight,
+                            query: `${src}${this.pattern}${target}`
+                        });
+                        nextDistances.push(dist);
+                        nextSources.push(target);
+                    } else {
+                        targetNode.data.count++;
+                        const link1 = this.graph.getLink(src, target), link2 = this.graph.getLink(target, src);
+                        if (link1 || link2) {
+                            link1 ? link1.data.weight += weight : link2.data.weight += weight;
+                        } else {
+                            this.graph.addLink(src, target, {
+                                distance: dist,
+                                weight,
+                                query: `${src}${this.pattern}${target}`
+                            });
+                        }
+                    }
+                    weight -= 1;
+                    distance += 1;
+                });
+            }
+            sources = nextSources;
+            distances = nextDistances;
+        }
+        this.graph.endUpdate();
+        this.elapsedMs = performance.now() - t1;
+    }
+    toObject() {
+        let maxWeight = Number.NEGATIVE_INFINITY;
+        this.graph.forEachLink((link)=>{
+            if (link.data.weight > maxWeight) maxWeight = link.data.weight;
+        });
+        const obj = {
+            nodes: [],
+            links: [],
+            query: this.query,
+            depth: this.depth,
+            radius: this.radius,
+            maxWeight,
+            maxDistance: this.maxDistance,
+            pattern: this.pattern,
+            elapsedMs: this.elapsedMs
+        };
+        this.graph.forEachNode((node)=>{
+            obj.nodes.push({
+                id: node.id,
+                ...node.data
+            });
+        });
+        this.graph.forEachLink((link)=>{
+            obj.links.push({
+                source: link.fromId,
+                target: link.toId,
+                ...link.data
+            });
+        });
+        return obj;
+    }
+}) || _class1, _dec4 = Timeout(1000), _dec5 = Retry({
+    maxAttempts: 3
+}), _applyDecoratedDescriptor1(_class1.prototype, "fetchAutocomplete", [
+    _dec4,
+    _dec5
+], Object.getOwnPropertyDescriptor(_class1.prototype, "fetchAutocomplete"), _class1.prototype), _dec6 = Trace(), _dec7 = Timeout(10000), _applyDecoratedDescriptor1(_class1.prototype, "build", [
+    _dec6,
+    _dec7
+], Object.getOwnPropertyDescriptor(_class1.prototype, "build"), _class1.prototype), _class1);
+function deferred() {
+    let methods;
+    const promise = new Promise((resolve, reject)=>{
+        methods = {
+            resolve,
+            reject
+        };
+    });
+    return Object.assign(promise, methods);
+}
+function emptyReader() {
+    return {
+        read (_) {
+            return Promise.resolve(null);
+        }
+    };
+}
+function bodyReader(contentLength, r) {
+    let totalRead = 0;
+    let finished = false;
+    async function read(buf) {
+        if (finished) return null;
+        let result;
+        const remaining = contentLength - totalRead;
+        if (remaining >= buf.byteLength) {
+            result = await r.read(buf);
+        } else {
+            const readBuf = buf.subarray(0, remaining);
+            result = await r.read(readBuf);
+        }
+        if (result !== null) {
+            totalRead += result;
+        }
+        finished = totalRead === contentLength;
+        return result;
+    }
+    return {
+        read
+    };
+}
+function indexOf(source, pat, start = 0) {
+    if (start >= source.length) {
+        return -1;
+    }
+    if (start < 0) {
+        start = 0;
+    }
+    const s = pat[0];
+    for(let i = start; i < source.length; i++){
+        if (source[i] !== s) continue;
+        const pin = i;
+        let matched = 1;
+        let j = i;
+        while(matched < pat.length){
+            j++;
+            if (source[j] !== pat[j - i]) {
+                break;
+            }
+            matched++;
+        }
+        if (matched === pat.length) {
+            return i;
+        }
+    }
+    return -1;
+}
+function concat(...buf) {
+    let length = 0;
+    for (const b of buf){
+        length += b.length;
+    }
+    const output = new Uint8Array(length);
+    let index = 0;
+    for (const b1 of buf){
+        output.set(b1, index);
+        index += b1.length;
+    }
+    return output;
+}
+function copy(src, dst, off = 0) {
+    off = Math.max(0, Math.min(off, dst.byteLength));
+    const dstBytesAvailable = dst.byteLength - off;
+    if (src.byteLength > dstBytesAvailable) {
+        src = src.subarray(0, dstBytesAvailable);
+    }
+    dst.set(src, off);
+    return src.byteLength;
+}
+const invalidHeaderCharRegex = /[^\t\x20-\x7e\x80-\xff]/g;
+const encoder = new TextEncoder();
+function encode(input) {
+    return encoder.encode(input);
+}
+const decoder = new TextDecoder();
+function decode(input) {
+    return decoder.decode(input);
+}
+function str(buf) {
+    if (buf == null) {
+        return "";
+    } else {
+        return decode(buf);
+    }
+}
+function charCode(s) {
+    return s.charCodeAt(0);
+}
+class TextProtoReader {
+    constructor(r1){
+        this.r = r1;
+    }
+    async readLine() {
+        const s = await this.readLineSlice();
+        if (s === null) return null;
+        return str(s);
+    }
+    async readMIMEHeader() {
+        const m = new Headers();
+        let line;
+        let buf = await this.r.peek(1);
+        if (buf === null) {
+            return null;
+        } else if (buf[0] == charCode(" ") || buf[0] == charCode("\t")) {
+            line = await this.readLineSlice();
+        }
+        buf = await this.r.peek(1);
+        if (buf === null) {
+            throw new Deno.errors.UnexpectedEof();
+        } else if (buf[0] == charCode(" ") || buf[0] == charCode("\t")) {
+            throw new Deno.errors.InvalidData(`malformed MIME header initial line: ${str(line)}`);
+        }
+        while(true){
+            const kv = await this.readLineSlice();
+            if (kv === null) throw new Deno.errors.UnexpectedEof();
+            if (kv.byteLength === 0) return m;
+            let i = kv.indexOf(charCode(":"));
+            if (i < 0) {
+                throw new Deno.errors.InvalidData(`malformed MIME header line: ${str(kv)}`);
+            }
+            const key = str(kv.subarray(0, i));
+            if (key == "") {
+                continue;
+            }
+            i++;
+            while(i < kv.byteLength && (kv[i] == charCode(" ") || kv[i] == charCode("\t"))){
+                i++;
+            }
+            const value = str(kv.subarray(i)).replace(invalidHeaderCharRegex, encodeURI);
+            try {
+                m.append(key, value);
+            } catch  {
+            }
+        }
+    }
+    async readLineSlice() {
+        let line;
+        while(true){
+            const r1 = await this.r.readLine();
+            if (r1 === null) return null;
+            const { line: l , more  } = r1;
+            if (!line && !more) {
+                if (this.skipSpace(l) === 0) {
+                    return new Uint8Array(0);
+                }
+                return l;
+            }
+            line = line ? concat(line, l) : l;
+            if (!more) {
+                break;
+            }
+        }
+        return line;
+    }
+    skipSpace(l) {
+        let n = 0;
+        for(let i = 0; i < l.length; i++){
+            if (l[i] === charCode(" ") || l[i] === charCode("\t")) {
+                continue;
+            }
+            n++;
+        }
+        return n;
+    }
+}
+class DenoStdInternalError extends Error {
+    constructor(message1){
+        super(message1);
+        this.name = "DenoStdInternalError";
+    }
+}
+function assert(expr, msg = "") {
+    if (!expr) {
+        throw new DenoStdInternalError(msg);
+    }
+}
+function chunkedBodyReader(h, r1) {
+    const tp = new TextProtoReader(r1);
+    let finished = false;
+    const chunks = [];
+    async function read(buf) {
+        if (finished) return null;
+        const [chunk] = chunks;
+        if (chunk) {
+            const chunkRemaining = chunk.data.byteLength - chunk.offset;
+            const readLength = Math.min(chunkRemaining, buf.byteLength);
+            for(let i = 0; i < readLength; i++){
+                buf[i] = chunk.data[chunk.offset + i];
+            }
+            chunk.offset += readLength;
+            if (chunk.offset === chunk.data.byteLength) {
+                chunks.shift();
+                if (await tp.readLine() === null) {
+                    throw new Deno.errors.UnexpectedEof();
+                }
+            }
+            return readLength;
+        }
+        const line = await tp.readLine();
+        if (line === null) throw new Deno.errors.UnexpectedEof();
+        const [chunkSizeString] = line.split(";");
+        const chunkSize = parseInt(chunkSizeString, 16);
+        if (Number.isNaN(chunkSize) || chunkSize < 0) {
+            throw new Deno.errors.InvalidData("Invalid chunk size");
+        }
+        if (chunkSize > 0) {
+            if (chunkSize > buf.byteLength) {
+                let eof = await r1.readFull(buf);
+                if (eof === null) {
+                    throw new Deno.errors.UnexpectedEof();
+                }
+                const restChunk = new Uint8Array(chunkSize - buf.byteLength);
+                eof = await r1.readFull(restChunk);
+                if (eof === null) {
+                    throw new Deno.errors.UnexpectedEof();
+                } else {
+                    chunks.push({
+                        offset: 0,
+                        data: restChunk
+                    });
+                }
+                return buf.byteLength;
+            } else {
+                const bufToFill = buf.subarray(0, chunkSize);
+                const eof = await r1.readFull(bufToFill);
+                if (eof === null) {
+                    throw new Deno.errors.UnexpectedEof();
+                }
+                if (await tp.readLine() === null) {
+                    throw new Deno.errors.UnexpectedEof();
+                }
+                return chunkSize;
+            }
+        } else {
+            assert(chunkSize === 0);
+            if (await r1.readLine() === null) {
+                throw new Deno.errors.UnexpectedEof();
+            }
+            await readTrailers(h, r1);
+            finished = true;
+            return null;
+        }
+    }
+    return {
+        read
+    };
+}
+function isProhibidedForTrailer(key) {
+    const s = new Set([
+        "transfer-encoding",
+        "content-length",
+        "trailer"
+    ]);
+    return s.has(key.toLowerCase());
+}
+async function readTrailers(headers, r1) {
+    const trailers = parseTrailer(headers.get("trailer"));
+    if (trailers == null) return;
+    const trailerNames = [
+        ...trailers.keys()
+    ];
+    const tp = new TextProtoReader(r1);
+    const result = await tp.readMIMEHeader();
+    if (result == null) {
+        throw new Deno.errors.InvalidData("Missing trailer header.");
+    }
+    const undeclared = [
+        ...result.keys()
+    ].filter((k)=>!trailerNames.includes(k)
+    );
+    if (undeclared.length > 0) {
+        throw new Deno.errors.InvalidData(`Undeclared trailers: ${Deno.inspect(undeclared)}.`);
+    }
+    for (const [k, v] of result){
+        headers.append(k, v);
+    }
+    const missingTrailers = trailerNames.filter((k1)=>!result.has(k1)
+    );
+    if (missingTrailers.length > 0) {
+        throw new Deno.errors.InvalidData(`Missing trailers: ${Deno.inspect(missingTrailers)}.`);
+    }
+    headers.delete("trailer");
+}
+function parseTrailer(field) {
+    if (field == null) {
+        return undefined;
+    }
+    const trailerNames = field.split(",").map((v)=>v.trim().toLowerCase()
+    );
+    if (trailerNames.length === 0) {
+        throw new Deno.errors.InvalidData("Empty trailer header.");
+    }
+    const prohibited = trailerNames.filter((k)=>isProhibidedForTrailer(k)
+    );
+    if (prohibited.length > 0) {
+        throw new Deno.errors.InvalidData(`Prohibited trailer names: ${Deno.inspect(prohibited)}.`);
+    }
+    return new Headers(trailerNames.map((key)=>[
+            key,
+            ""
+        ]
+    ));
+}
+async function writeChunkedBody(w, r1) {
+    for await (const chunk of Deno.iter(r1)){
+        if (chunk.byteLength <= 0) continue;
+        const start = encoder.encode(`${chunk.byteLength.toString(16)}\r\n`);
+        const end = encoder.encode("\r\n");
+        await w.write(start);
+        await w.write(chunk);
+        await w.write(end);
+        await w.flush();
+    }
+    const endChunk = encoder.encode("0\r\n\r\n");
+    await w.write(endChunk);
+}
+const CR = "\r".charCodeAt(0);
+const LF = "\n".charCodeAt(0);
+class BufferFullError extends Error {
+    name = "BufferFullError";
+    constructor(partial){
+        super("Buffer full");
+        this.partial = partial;
+    }
+}
+class PartialReadError extends Deno.errors.UnexpectedEof {
+    name = "PartialReadError";
+    constructor(){
+        super("Encountered UnexpectedEof, data only partially read");
+    }
+}
+class BufReader {
+    r = 0;
+    w = 0;
+    eof = false;
+    static create(r, size = 4096) {
+        return r instanceof BufReader ? r : new BufReader(r, size);
+    }
+    constructor(rd1, size1 = 4096){
+        if (size1 < 16) {
+            size1 = 16;
+        }
+        this._reset(new Uint8Array(size1), rd1);
+    }
+    size() {
+        return this.buf.byteLength;
+    }
+    buffered() {
+        return this.w - this.r;
+    }
+    async _fill() {
+        if (this.r > 0) {
+            this.buf.copyWithin(0, this.r, this.w);
+            this.w -= this.r;
+            this.r = 0;
+        }
+        if (this.w >= this.buf.byteLength) {
+            throw Error("bufio: tried to fill full buffer");
+        }
+        for(let i = 100; i > 0; i--){
+            const rr = await this.rd.read(this.buf.subarray(this.w));
+            if (rr === null) {
+                this.eof = true;
+                return;
+            }
+            assert(rr >= 0, "negative read");
+            this.w += rr;
+            if (rr > 0) {
+                return;
+            }
+        }
+        throw new Error(`No progress after ${100} read() calls`);
+    }
+    reset(r) {
+        this._reset(this.buf, r);
+    }
+    _reset(buf, rd) {
+        this.buf = buf;
+        this.rd = rd;
+        this.eof = false;
+    }
+    async read(p) {
+        let rr = p.byteLength;
+        if (p.byteLength === 0) return rr;
+        if (this.r === this.w) {
+            if (p.byteLength >= this.buf.byteLength) {
+                const rr1 = await this.rd.read(p);
+                const nread = rr1 ?? 0;
+                assert(nread >= 0, "negative read");
+                return rr1;
+            }
+            this.r = 0;
+            this.w = 0;
+            rr = await this.rd.read(this.buf);
+            if (rr === 0 || rr === null) return rr;
+            assert(rr >= 0, "negative read");
+            this.w += rr;
+        }
+        const copied = copy(this.buf.subarray(this.r, this.w), p, 0);
+        this.r += copied;
+        return copied;
+    }
+    async readFull(p) {
+        let bytesRead = 0;
+        while(bytesRead < p.length){
+            try {
+                const rr = await this.read(p.subarray(bytesRead));
+                if (rr === null) {
+                    if (bytesRead === 0) {
+                        return null;
+                    } else {
+                        throw new PartialReadError();
+                    }
+                }
+                bytesRead += rr;
+            } catch (err) {
+                err.partial = p.subarray(0, bytesRead);
+                throw err;
+            }
+        }
+        return p;
+    }
+    async readByte() {
+        while(this.r === this.w){
+            if (this.eof) return null;
+            await this._fill();
+        }
+        const c = this.buf[this.r];
+        this.r++;
+        return c;
+    }
+    async readString(delim) {
+        if (delim.length !== 1) {
+            throw new Error("Delimiter should be a single character");
+        }
+        const buffer = await this.readSlice(delim.charCodeAt(0));
+        if (buffer === null) return null;
+        return new TextDecoder().decode(buffer);
+    }
+    async readLine() {
+        let line;
+        try {
+            line = await this.readSlice(LF);
+        } catch (err) {
+            let { partial: partial1  } = err;
+            assert(partial1 instanceof Uint8Array, "bufio: caught error from `readSlice()` without `partial` property");
+            if (!(err instanceof BufferFullError)) {
+                throw err;
+            }
+            if (!this.eof && partial1.byteLength > 0 && partial1[partial1.byteLength - 1] === CR) {
+                assert(this.r > 0, "bufio: tried to rewind past start of buffer");
+                this.r--;
+                partial1 = partial1.subarray(0, partial1.byteLength - 1);
+            }
+            return {
+                line: partial1,
+                more: !this.eof
+            };
+        }
+        if (line === null) {
+            return null;
+        }
+        if (line.byteLength === 0) {
+            return {
+                line,
+                more: false
+            };
+        }
+        if (line[line.byteLength - 1] == LF) {
+            let drop = 1;
+            if (line.byteLength > 1 && line[line.byteLength - 2] === CR) {
+                drop = 2;
+            }
+            line = line.subarray(0, line.byteLength - drop);
+        }
+        return {
+            line,
+            more: false
+        };
+    }
+    async readSlice(delim) {
+        let s = 0;
+        let slice;
+        while(true){
+            let i = this.buf.subarray(this.r + s, this.w).indexOf(delim);
+            if (i >= 0) {
+                i += s;
+                slice = this.buf.subarray(this.r, this.r + i + 1);
+                this.r += i + 1;
+                break;
+            }
+            if (this.eof) {
+                if (this.r === this.w) {
+                    return null;
+                }
+                slice = this.buf.subarray(this.r, this.w);
+                this.r = this.w;
+                break;
+            }
+            if (this.buffered() >= this.buf.byteLength) {
+                this.r = this.w;
+                const oldbuf = this.buf;
+                const newbuf = this.buf.slice(0);
+                this.buf = newbuf;
+                throw new BufferFullError(oldbuf);
+            }
+            s = this.w - this.r;
+            try {
+                await this._fill();
+            } catch (err) {
+                err.partial = slice;
+                throw err;
+            }
+        }
+        return slice;
+    }
+    async peek(n) {
+        if (n < 0) {
+            throw Error("negative count");
+        }
+        let avail = this.w - this.r;
+        while(avail < n && avail < this.buf.byteLength && !this.eof){
+            try {
+                await this._fill();
+            } catch (err) {
+                err.partial = this.buf.subarray(this.r, this.w);
+                throw err;
+            }
+            avail = this.w - this.r;
+        }
+        if (avail === 0 && this.eof) {
+            return null;
+        } else if (avail < n && this.eof) {
+            return this.buf.subarray(this.r, this.r + avail);
+        } else if (avail < n) {
+            throw new BufferFullError(this.buf.subarray(this.r, this.w));
+        }
+        return this.buf.subarray(this.r, this.r + n);
+    }
+}
+class AbstractBufBase {
+    usedBufferBytes = 0;
+    err = null;
+    size() {
+        return this.buf.byteLength;
+    }
+    available() {
+        return this.buf.byteLength - this.usedBufferBytes;
+    }
+    buffered() {
+        return this.usedBufferBytes;
+    }
+}
+class BufWriter extends AbstractBufBase {
+    static create(writer, size = 4096) {
+        return writer instanceof BufWriter ? writer : new BufWriter(writer, size);
+    }
+    constructor(writer1, size2 = 4096){
+        super();
+        this.writer = writer1;
+        if (size2 <= 0) {
+            size2 = 4096;
+        }
+        this.buf = new Uint8Array(size2);
+    }
+    reset(w) {
+        this.err = null;
+        this.usedBufferBytes = 0;
+        this.writer = w;
+    }
+    async flush() {
+        if (this.err !== null) throw this.err;
+        if (this.usedBufferBytes === 0) return;
+        try {
+            await Deno.writeAll(this.writer, this.buf.subarray(0, this.usedBufferBytes));
+        } catch (e) {
+            this.err = e;
+            throw e;
+        }
+        this.buf = new Uint8Array(this.buf.length);
+        this.usedBufferBytes = 0;
+    }
+    async write(data) {
+        if (this.err !== null) throw this.err;
+        if (data.length === 0) return 0;
+        let totalBytesWritten = 0;
+        let numBytesWritten = 0;
+        while(data.byteLength > this.available()){
+            if (this.buffered() === 0) {
+                try {
+                    numBytesWritten = await this.writer.write(data);
+                } catch (e) {
+                    this.err = e;
+                    throw e;
+                }
+            } else {
+                numBytesWritten = copy(data, this.buf, this.usedBufferBytes);
+                this.usedBufferBytes += numBytesWritten;
+                await this.flush();
+            }
+            totalBytesWritten += numBytesWritten;
+            data = data.subarray(numBytesWritten);
+        }
+        numBytesWritten = copy(data, this.buf, this.usedBufferBytes);
+        this.usedBufferBytes += numBytesWritten;
+        totalBytesWritten += numBytesWritten;
+        return totalBytesWritten;
+    }
+}
+class BufWriterSync extends AbstractBufBase {
+    static create(writer, size = 4096) {
+        return writer instanceof BufWriterSync ? writer : new BufWriterSync(writer, size);
+    }
+    constructor(writer2, size3 = 4096){
+        super();
+        this.writer = writer2;
+        if (size3 <= 0) {
+            size3 = 4096;
+        }
+        this.buf = new Uint8Array(size3);
+    }
+    reset(w) {
+        this.err = null;
+        this.usedBufferBytes = 0;
+        this.writer = w;
+    }
+    flush() {
+        if (this.err !== null) throw this.err;
+        if (this.usedBufferBytes === 0) return;
+        try {
+            Deno.writeAllSync(this.writer, this.buf.subarray(0, this.usedBufferBytes));
+        } catch (e) {
+            this.err = e;
+            throw e;
+        }
+        this.buf = new Uint8Array(this.buf.length);
+        this.usedBufferBytes = 0;
+    }
+    writeSync(data) {
+        if (this.err !== null) throw this.err;
+        if (data.length === 0) return 0;
+        let totalBytesWritten = 0;
+        let numBytesWritten = 0;
+        while(data.byteLength > this.available()){
+            if (this.buffered() === 0) {
+                try {
+                    numBytesWritten = this.writer.writeSync(data);
+                } catch (e) {
+                    this.err = e;
+                    throw e;
+                }
+            } else {
+                numBytesWritten = copy(data, this.buf, this.usedBufferBytes);
+                this.usedBufferBytes += numBytesWritten;
+                this.flush();
+            }
+            totalBytesWritten += numBytesWritten;
+            data = data.subarray(numBytesWritten);
+        }
+        numBytesWritten = copy(data, this.buf, this.usedBufferBytes);
+        this.usedBufferBytes += numBytesWritten;
+        totalBytesWritten += numBytesWritten;
+        return totalBytesWritten;
+    }
+}
+function createLPS(pat) {
+    const lps = new Uint8Array(pat.length);
+    lps[0] = 0;
+    let prefixEnd = 0;
+    let i = 1;
+    while(i < lps.length){
+        if (pat[i] == pat[prefixEnd]) {
+            prefixEnd++;
+            lps[i] = prefixEnd;
+            i++;
+        } else if (prefixEnd === 0) {
+            lps[i] = 0;
+            i++;
+        } else {
+            prefixEnd = pat[prefixEnd - 1];
+        }
+    }
+    return lps;
+}
+async function* readDelim(reader, delim) {
+    const delimLen = delim.length;
+    const delimLPS = createLPS(delim);
+    let inputBuffer = new Deno.Buffer();
+    const inspectArr = new Uint8Array(Math.max(1024, delimLen + 1));
+    let inspectIndex = 0;
+    let matchIndex = 0;
+    while(true){
+        const result = await reader.read(inspectArr);
+        if (result === null) {
+            yield inputBuffer.bytes();
+            return;
+        }
+        if (result < 0) {
+            return;
+        }
+        const sliceRead = inspectArr.subarray(0, result);
+        await Deno.writeAll(inputBuffer, sliceRead);
+        let sliceToProcess = inputBuffer.bytes();
+        while(inspectIndex < sliceToProcess.length){
+            if (sliceToProcess[inspectIndex] === delim[matchIndex]) {
+                inspectIndex++;
+                matchIndex++;
+                if (matchIndex === delimLen) {
+                    const matchEnd = inspectIndex - delimLen;
+                    const readyBytes = sliceToProcess.subarray(0, matchEnd);
+                    const pendingBytes = sliceToProcess.slice(inspectIndex);
+                    yield readyBytes;
+                    sliceToProcess = pendingBytes;
+                    inspectIndex = 0;
+                    matchIndex = 0;
+                }
+            } else {
+                if (matchIndex === 0) {
+                    inspectIndex++;
+                } else {
+                    matchIndex = delimLPS[matchIndex - 1];
+                }
+            }
+        }
+        inputBuffer = new Deno.Buffer(sliceToProcess);
+    }
+}
+async function* readStringDelim(reader, delim) {
+    const encoder1 = new TextEncoder();
+    const decoder1 = new TextDecoder();
+    for await (const chunk of readDelim(reader, encoder1.encode(delim))){
+        yield decoder1.decode(chunk);
+    }
+}
+async function writeTrailers(w, headers, trailers) {
+    const trailer = headers.get("trailer");
+    if (trailer === null) {
+        throw new TypeError("Missing trailer header.");
+    }
+    const transferEncoding = headers.get("transfer-encoding");
+    if (transferEncoding === null || !transferEncoding.match(/^chunked/)) {
+        throw new TypeError(`Trailers are only allowed for "transfer-encoding: chunked", got "transfer-encoding: ${transferEncoding}".`);
+    }
+    const writer3 = BufWriter.create(w);
+    const trailerNames = trailer.split(",").map((s)=>s.trim().toLowerCase()
+    );
+    const prohibitedTrailers = trailerNames.filter((k)=>isProhibidedForTrailer(k)
+    );
+    if (prohibitedTrailers.length > 0) {
+        throw new TypeError(`Prohibited trailer names: ${Deno.inspect(prohibitedTrailers)}.`);
+    }
+    const undeclared = [
+        ...trailers.keys()
+    ].filter((k)=>!trailerNames.includes(k)
+    );
+    if (undeclared.length > 0) {
+        throw new TypeError(`Undeclared trailers: ${Deno.inspect(undeclared)}.`);
+    }
+    for (const [key, value] of trailers){
+        await writer3.write(encoder.encode(`${key}: ${value}\r\n`));
+    }
+    await writer3.write(encoder.encode("\r\n"));
+    await writer3.flush();
+}
+async function writeResponse(w, r2) {
+    const protoMajor = 1;
+    const protoMinor = 1;
+    const statusCode = r2.status || 200;
+    const statusText = STATUS_TEXT.get(statusCode);
+    const writer3 = BufWriter.create(w);
+    if (!statusText) {
+        throw new Deno.errors.InvalidData("Bad status code");
+    }
+    if (!r2.body) {
+        r2.body = new Uint8Array();
+    }
+    if (typeof r2.body === "string") {
+        r2.body = encoder.encode(r2.body);
+    }
+    let out = `HTTP/${1}.${1} ${statusCode} ${statusText}\r\n`;
+    const headers = r2.headers ?? new Headers();
+    if (r2.body && !headers.get("content-length")) {
+        if (r2.body instanceof Uint8Array) {
+            out += `content-length: ${r2.body.byteLength}\r\n`;
+        } else if (!headers.get("transfer-encoding")) {
+            out += "transfer-encoding: chunked\r\n";
+        }
+    }
+    for (const [key, value] of headers){
+        out += `${key}: ${value}\r\n`;
+    }
+    out += `\r\n`;
+    const header = encoder.encode(out);
+    const n = await writer3.write(header);
+    assert(n === header.byteLength);
+    if (r2.body instanceof Uint8Array) {
+        const n1 = await writer3.write(r2.body);
+        assert(n1 === r2.body.byteLength);
+    } else if (headers.has("content-length")) {
+        const contentLength = headers.get("content-length");
+        assert(contentLength != null);
+        const bodyLength = parseInt(contentLength);
+        const n1 = await Deno.copy(r2.body, writer3);
+        assert(n1 === bodyLength);
+    } else {
+        await writeChunkedBody(writer3, r2.body);
+    }
+    if (r2.trailers) {
+        const t = await r2.trailers();
+        await writeTrailers(writer3, headers, t);
+    }
+    await writer3.flush();
+}
+function parseHTTPVersion(vers) {
+    switch(vers){
+        case "HTTP/1.1":
+            return [
+                1,
+                1
+            ];
+        case "HTTP/1.0":
+            return [
+                1,
+                0
+            ];
+        default:
+            {
+                const Big = 1000000;
+                if (!vers.startsWith("HTTP/")) {
+                    break;
+                }
+                const dot = vers.indexOf(".");
+                if (dot < 0) {
+                    break;
+                }
+                const majorStr = vers.substring(vers.indexOf("/") + 1, dot);
+                const major = Number(majorStr);
+                if (!Number.isInteger(major) || major < 0 || major > 1000000) {
+                    break;
+                }
+                const minorStr = vers.substring(dot + 1);
+                const minor = Number(minorStr);
+                if (!Number.isInteger(minor) || minor < 0 || minor > 1000000) {
+                    break;
+                }
+                return [
+                    major,
+                    minor
+                ];
+            }
+    }
+    throw new Error(`malformed HTTP version ${vers}`);
+}
+class ServerRequest {
+    done = deferred();
+    _contentLength = undefined;
+    get contentLength() {
+        if (this._contentLength === undefined) {
+            const cl = this.headers.get("content-length");
+            if (cl) {
+                this._contentLength = parseInt(cl);
+                if (Number.isNaN(this._contentLength)) {
+                    this._contentLength = null;
+                }
+            } else {
+                this._contentLength = null;
+            }
+        }
+        return this._contentLength;
+    }
+    _body = null;
+    get body() {
+        if (!this._body) {
+            if (this.contentLength != null) {
+                this._body = bodyReader(this.contentLength, this.r);
+            } else {
+                const transferEncoding = this.headers.get("transfer-encoding");
+                if (transferEncoding != null) {
+                    const parts = transferEncoding.split(",").map((e)=>e.trim().toLowerCase()
+                    );
+                    assert(parts.includes("chunked"), 'transfer-encoding must include "chunked" if content-length is not set');
+                    this._body = chunkedBodyReader(this.headers, this.r);
+                } else {
+                    this._body = emptyReader();
+                }
+            }
+        }
+        return this._body;
+    }
+    async respond(r) {
+        let err;
+        try {
+            await writeResponse(this.w, r);
+        } catch (e) {
+            try {
+                this.conn.close();
+            } catch  {
+            }
+            err = e;
+        }
+        this.done.resolve(err);
+        if (err) {
+            throw err;
+        }
+    }
+    finalized = false;
+    async finalize() {
+        if (this.finalized) return;
+        const body = this.body;
+        const buf = new Uint8Array(1024);
+        while(await body.read(buf) !== null){
+        }
+        this.finalized = true;
+    }
+}
+async function readRequest(conn, bufr) {
+    const tp = new TextProtoReader(bufr);
+    const firstLine = await tp.readLine();
+    if (firstLine === null) return null;
+    const headers = await tp.readMIMEHeader();
+    if (headers === null) throw new Deno.errors.UnexpectedEof();
+    const req = new ServerRequest();
+    req.conn = conn;
+    req.r = bufr;
+    [req.method, req.url, req.proto] = firstLine.split(" ", 3);
+    [req.protoMinor, req.protoMajor] = parseHTTPVersion(req.proto);
+    req.headers = headers;
+    fixLength(req);
+    return req;
+}
+function fixLength(req) {
+    const contentLength = req.headers.get("Content-Length");
+    if (contentLength) {
+        const arrClen = contentLength.split(",");
+        if (arrClen.length > 1) {
+            const distinct = [
+                ...new Set(arrClen.map((e)=>e.trim()
+                ))
+            ];
+            if (distinct.length > 1) {
+                throw Error("cannot contain multiple Content-Length headers");
+            } else {
+                req.headers.set("Content-Length", distinct[0]);
+            }
+        }
+        const c = req.headers.get("Content-Length");
+        if (req.method === "HEAD" && c && c !== "0") {
+            throw Error("http: method cannot contain a Content-Length");
+        }
+        if (c && req.headers.has("transfer-encoding")) {
+            throw new Error("http: Transfer-Encoding and Content-Length cannot be send together");
+        }
+    }
+}
+class MuxAsyncIterator {
+    iteratorCount = 0;
+    yields = [];
+    throws = [];
+    signal = deferred();
+    add(iterator) {
+        ++this.iteratorCount;
+        this.callIteratorNext(iterator);
+    }
+    async callIteratorNext(iterator) {
+        try {
+            const { value , done  } = await iterator.next();
+            if (done) {
+                --this.iteratorCount;
+            } else {
+                this.yields.push({
+                    iterator,
+                    value
+                });
+            }
+        } catch (e) {
+            this.throws.push(e);
+        }
+        this.signal.resolve();
+    }
+    async *iterate() {
+        while(this.iteratorCount > 0){
+            await this.signal;
+            for(let i = 0; i < this.yields.length; i++){
+                const { iterator , value  } = this.yields[i];
+                yield value;
+                this.callIteratorNext(iterator);
+            }
+            if (this.throws.length) {
+                for (const e of this.throws){
+                    throw e;
+                }
+                this.throws.length = 0;
+            }
+            this.yields.length = 0;
+            this.signal = deferred();
+        }
+    }
+    [Symbol.asyncIterator]() {
+        return this.iterate();
+    }
+}
+class Server {
+    closing = false;
+    connections = [];
+    constructor(listener){
+        this.listener = listener;
+    }
+    close() {
+        this.closing = true;
+        this.listener.close();
+        for (const conn of this.connections){
+            try {
+                conn.close();
+            } catch (e) {
+                if (!(e instanceof Deno.errors.BadResource)) {
+                    throw e;
+                }
+            }
+        }
+    }
+    async *iterateHttpRequests(conn) {
+        const reader = new BufReader(conn);
+        const writer3 = new BufWriter(conn);
+        while(!this.closing){
+            let request;
+            try {
+                request = await readRequest(conn, reader);
+            } catch (error) {
+                if (error instanceof Deno.errors.InvalidData || error instanceof Deno.errors.UnexpectedEof) {
+                    try {
+                        await writeResponse(writer3, {
+                            status: 400,
+                            body: encode(`${error.message}\r\n\r\n`)
+                        });
+                    } catch (error) {
+                    }
+                }
+                break;
+            }
+            if (request === null) {
+                break;
+            }
+            request.w = writer3;
+            yield request;
+            const responseError = await request.done;
+            if (responseError) {
+                this.untrackConnection(request.conn);
+                return;
+            }
+            try {
+                await request.finalize();
+            } catch (error) {
+                break;
+            }
+        }
+        this.untrackConnection(conn);
+        try {
+            conn.close();
+        } catch (e) {
+        }
+    }
+    trackConnection(conn) {
+        this.connections.push(conn);
+    }
+    untrackConnection(conn) {
+        const index = this.connections.indexOf(conn);
+        if (index !== -1) {
+            this.connections.splice(index, 1);
+        }
+    }
+    async *acceptConnAndIterateHttpRequests(mux) {
+        if (this.closing) return;
+        let conn;
+        try {
+            conn = await this.listener.accept();
+        } catch (error) {
+            if (error instanceof Deno.errors.BadResource || error instanceof Deno.errors.InvalidData || error instanceof Deno.errors.UnexpectedEof || error instanceof Deno.errors.ConnectionReset) {
+                return mux.add(this.acceptConnAndIterateHttpRequests(mux));
+            }
+            throw error;
+        }
+        this.trackConnection(conn);
+        mux.add(this.acceptConnAndIterateHttpRequests(mux));
+        yield* this.iterateHttpRequests(conn);
+    }
+    [Symbol.asyncIterator]() {
+        const mux = new MuxAsyncIterator();
+        mux.add(this.acceptConnAndIterateHttpRequests(mux));
+        return mux.iterate();
+    }
+}
+function _parseAddrFromStr(addr) {
+    let url;
+    try {
+        const host = addr.startsWith(":") ? `0.0.0.0${addr}` : addr;
+        url = new URL(`http://${host}`);
+    } catch  {
+        throw new TypeError("Invalid address.");
+    }
+    if (url.username || url.password || url.pathname != "/" || url.search || url.hash) {
+        throw new TypeError("Invalid address.");
+    }
+    return {
+        hostname: url.hostname,
+        port: url.port === "" ? 80 : Number(url.port)
+    };
+}
+function serve(addr) {
+    if (typeof addr === "string") {
+        addr = _parseAddrFromStr(addr);
+    }
+    const listener1 = Deno.listen(addr);
+    return new Server(listener1);
+}
+function serveTLS(options1) {
+    const tlsOptions = {
+        ...options1,
+        transport: "tcp"
+    };
+    const listener1 = Deno.listenTls(tlsOptions);
+    return new Server(listener1);
+}
+function Memoize(options1 = {
+}) {
+    return function(target, propertyKey, descriptor) {
+        const originalFn = descriptor.value;
+        const cache = new LruCache();
+        let timeout = Number.POSITIVE_INFINITY;
+        descriptor.value = async function(...args) {
+            const key = options1.resolver ? options1.resolver.apply(this, args) : JSON.stringify(args);
+            if (cache.has(key) && (!options1.ttl || timeout > Date.now())) {
+                const value = cache.get(key);
+                options1.onFound?.apply(this, [
+                    key,
+                    value
+                ]);
+                return value;
+            } else {
+                const result = await originalFn.apply(this, args);
+                cache.put(key, result);
+                options1.onAdded?.apply(this, [
+                    key,
+                    result
+                ]);
+                if (options1.ttl) timeout = Date.now() + options1.ttl;
+                return result;
+            }
+        };
+        return descriptor;
+    };
+}
+function Try(options1) {
+    return function(target, propertyKey, descriptor) {
+        const originalFn = descriptor.value;
+        descriptor.value = async function(...args) {
+            try {
+                return await originalFn.apply(this, args);
+            } catch (e) {
+                if (options1?.catch) {
+                    if (e instanceof Error && !options1.catch.includes(e.constructor.name) || typeof e === "string" && !options1.catch.includes(e)) {
+                        throw e;
+                    }
+                }
+                if (options1?.log) {
+                    console.error(brightRed("Runtime exception:"), brightYellow(typeof e === "string" ? e : e.message));
+                }
+                if (options1?.onError) options1.onError(e);
+            } finally{
+                if (options1?.onDone) options1.onDone();
+            }
+        };
+        return descriptor;
+    };
+}
+class RateLimitError extends Error {
+}
+function RateLimit(options1) {
+    return function(target, propertyKey, descriptor) {
+        const originalFn = descriptor.value;
+        const queue = new __default1();
+        descriptor.value = async function(...args) {
+            const now = Date.now();
+            while(queue.peekFront() && Date.now() - queue.peekFront() > (options1?.interval ?? 1000)){
+                queue.shift();
+            }
+            if (queue.size() >= (options1?.rate ?? 1)) {
+                throw new RateLimitError("Rate limit exceeded");
+            }
+            let result = undefined;
+            queue.push(Date.now());
+            return await originalFn.apply(this, args);
+        };
+        return descriptor;
+    };
+}
+let EgoNet = ((_class = class EgoNet {
+    async graph(options) {
+        const ego = new EgoGraph({
+            query: options.query,
+            depth: options.depth,
+            radius: options.radius
+        });
+        await ego.build();
+        return JSON.stringify(ego.toObject());
+    }
+    respond(req, r) {
+        return req.respond(r);
+    }
+    async handleQuery(req, options, headers) {
+        console.log(`${brightGreen(req.method)} ${bold(req.url)}`);
+        const graph = await this.graph(options);
+        headers.set("Cache-Control", `public, max-age=${CACHE_EXPIRATION_MS / 1000}`);
+        headers.set("Date", new Date().toUTCString());
+        headers.set("Content-Type", "application/json");
+        return this.respond(req, {
+            status: Status.OK,
+            headers,
+            body: graph
+        });
+    }
+    handleNotAcceptable(req, headers) {
+        console.error(`${req.method} ${req.url} ${brightYellow("Not acceptable")}`);
+        return this.respond(req, {
+            status: Status.NotAcceptable,
+            headers,
+            body: JSON.stringify({
+                message: "Not Acceptable"
+            })
+        });
+    }
+    handleNotFound(req, headers) {
+        console.warn(`${req.method} ${req.url} ${brightYellow("Not Found")}`);
+        return this.respond(req, {
+            status: Status.NotFound,
+            headers,
+            body: JSON.stringify({
+                message: "Request Not Found"
+            })
+        });
+    }
+    handleError(req, message, headers) {
+        console.error(`${req.method} ${req.url} ${brightRed(message)}`);
+        return this.respond(req, {
+            status: Status.InternalServerError,
+            headers,
+            body: JSON.stringify({
+                message: "Internal server error",
+                error: stripColor(message)
+            })
+        });
+    }
+    async startServer() {
+        const server = serve({
+            hostname: SERVER_HOST,
+            port: Number(SERVER_PORT)
+        });
+        console.info(`${brightBlue("Server")} is running at ${bold(underline(SERVER_HOST + ":" + SERVER_PORT))}`);
+        console.info(`Deno: ${brightGreen(Deno.version.deno)} · V8: ${brightGreen(Deno.version.v8)} · TypeScript: ${brightGreen(Deno.version.typescript)}`);
+        for await (const req of server){
+            const origin = req.headers.get("origin");
+            const headers = new Headers();
+            if (origin && ALLOWED_ORIGINS.includes(origin)) {
+                headers.set("Access-Control-Allow-Origin", origin);
+            }
+            const host = req.headers.get("host");
+            const params = new URLSearchParams(req.url.slice(1));
+            if (host && ![
+                `localhost:${SERVER_PORT}`,
+                `host.docker.internal:${SERVER_PORT}`
+            ].includes(host) && !headers.get("Access-Control-Allow-Origin")) {
+                this.handleNotAcceptable(req, headers);
+            } else if (req.method === "GET" && params.get("q")) {
+                this.handleQuery(req, {
+                    query: params.get("q") ?? "",
+                    ...params.get("d") && {
+                        depth: Number(params.get("d"))
+                    },
+                    ...params.get("r") && {
+                        radius: Number(params.get("r"))
+                    }
+                }, headers).catch(async (e)=>{
+                    await this.handleError(req, e.message ?? e, headers);
+                });
+            } else {
+                this.handleNotFound(req, headers);
+            }
+        }
+    }
+}) || _class, _dec = Memoize({
+    ttl: CACHE_EXPIRATION_MS,
+    resolver: (options2)=>{
+        return `${options2.query}#${options2.depth ?? EgoGraph.DEFAULT_GRAPH_DEPTH}#${options2.pattern ?? EgoGraph.DEFAULT_SEARCH_PATTERN}#${options2.radius ?? EgoGraph.DEFAULT_GRAPH_RADIUS}`;
+    },
+    onAdded: (key)=>{
+        console.log(`query="${bold(key.split("#")[0])}" added to cache`);
+    },
+    onFound: (key)=>{
+        console.log(`query="${bold(key.split("#")[0])}" served from cache`);
+    }
+}), _applyDecoratedDescriptor(_class.prototype, "graph", [
+    _dec
+], Object.getOwnPropertyDescriptor(_class.prototype, "graph"), _class.prototype), _dec1 = Try({
+    catch: [
+        "BrokenPipe"
+    ],
+    log: true
+}), _applyDecoratedDescriptor(_class.prototype, "respond", [
+    _dec1
+], Object.getOwnPropertyDescriptor(_class.prototype, "respond"), _class.prototype), _dec2 = RateLimit({
+    rate: 50
+}), _applyDecoratedDescriptor(_class.prototype, "handleQuery", [
+    _dec2
+], Object.getOwnPropertyDescriptor(_class.prototype, "handleQuery"), _class.prototype), _dec3 = Try({
+    log: true
+}), _applyDecoratedDescriptor(_class.prototype, "startServer", [
+    _dec3
+], Object.getOwnPropertyDescriptor(_class.prototype, "startServer"), _class.prototype), _class);
+new EgoNet().startServer();
