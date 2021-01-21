@@ -10,23 +10,34 @@ import {
 import { Status } from "https://deno.land/std@0.82.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.82.0/fmt/colors.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
-import { Memoize, RateLimit, Try } from "https://deno.land/x/deco@0.4.7/mod.ts";
+import {
+  Concurrency,
+  Memoize,
+  RateLimit,
+  Try,
+} from "https://deno.land/x/deco@0.4.8/mod.ts";
 
-const SERVER_HOST = "0.0.0.0";
+const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 const MAX_QUERY_RPS = 50; // 50 Requests Per Second
 
 class EgoNet {
+  private static _keyFromOptions(options: EgoGraphOptions): string {
+    return `${options.query}#${options.depth ??
+      EgoGraph.DEFAULT_GRAPH_DEPTH}#${options.pattern ??
+      EgoGraph.DEFAULT_SEARCH_PATTERN}#${options.radius ??
+      EgoGraph.DEFAULT_GRAPH_RADIUS}`;
+  }
+
+  @Concurrency({
+    max: 1,
+    resolver: (options: EgoGraphOptions) => EgoNet._keyFromOptions(options),
+  })
   @Memoize({
     ttl: CACHE_EXPIRATION_MS,
-    resolver: (options: EgoGraphOptions): string => {
-      return `${options.query}#${options.depth ??
-        EgoGraph.DEFAULT_GRAPH_DEPTH}#${options.pattern ??
-        EgoGraph.DEFAULT_SEARCH_PATTERN}#${options.radius ??
-        EgoGraph.DEFAULT_GRAPH_RADIUS}`;
-    },
+    resolver: (options: EgoGraphOptions) => EgoNet._keyFromOptions(options),
     onAdded: (key: string) => {
       console.log(`query="${Colors.bold(key.split("#")[0])}" added to cache`);
     },
