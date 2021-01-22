@@ -15,13 +15,14 @@ import {
   Memoize,
   RateLimit,
   Try,
-} from "https://deno.land/x/deco@0.4.8/mod.ts";
+} from "https://deno.land/x/deco@0.4.9/mod.ts";
 
 const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 const MAX_QUERY_RPS = 50; // 50 Requests Per Second
+const MAX_QUERY_CONCURRENCY = 1; // concurrency limit for identical requests
 
 class EgoNet {
   private static _keyFromOptions(options: EgoGraphOptions): string {
@@ -32,8 +33,10 @@ class EgoNet {
   }
 
   @Concurrency({
-    max: 1,
+    max: MAX_QUERY_CONCURRENCY,
     resolver: (options: EgoGraphOptions) => EgoNet._keyFromOptions(options),
+    onPooled: (key: string) =>
+      console.log(`pooled query "${Colors.bold(key.split("#")[0])}"`),
   })
   @Memoize({
     ttl: CACHE_EXPIRATION_MS,
@@ -129,6 +132,30 @@ class EgoNet {
     });
   }
 
+  private diag() {
+    console.info(
+      `Deno: ${Colors.brightGreen(Deno.version.deno)} · V8: ${
+        Colors.brightGreen(Deno.version.v8)
+      } · TypeScript: ${Colors.brightGreen(Deno.version.typescript)}`,
+    );
+    const mem = Deno.systemMemoryInfo();
+    console.info(
+      `Memory: ${Colors.bold(Math.floor(mem.total / 1024) + "MB")} · free: ${
+        Colors.bold(Math.floor(mem.free / 1024) + "MB")
+      } · available: ${Colors.bold(Math.floor(mem.available / 1024) + "MB")}`,
+    );
+    const cpu = Deno.systemCpuInfo();
+    console.info(
+      `CPU cores: ${Colors.bold(String(cpu.cores))} · speed: ${
+        Colors.bold(cpu.speed + "MHz")
+      }`,
+    );
+    const osRel = Deno.osRelease();
+    console.info(
+      `OS release: ${Colors.bold(osRel)}`,
+    );
+  }
+
   @Try({
     log: true,
   })
@@ -139,11 +166,7 @@ class EgoNet {
         Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))
       }`,
     );
-    console.info(
-      `Deno: ${Colors.brightGreen(Deno.version.deno)} · V8: ${
-        Colors.brightGreen(Deno.version.v8)
-      } · TypeScript: ${Colors.brightGreen(Deno.version.typescript)}`,
-    );
+    this.diag();
     for await (const req of server) {
       const origin = req.headers.get("origin");
       const headers = new Headers();

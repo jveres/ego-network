@@ -3,8 +3,8 @@
 version: "3"
 
 vars:
-  DEV_ARGS: -A --unstable
-  PROD_ARGS: --allow-net=0.0.0.0,suggestqueries.google.com --allow-env --no-check
+  DEV_ARGS: --unstable -A
+  PROD_ARGS: --unstable --allow-net=0.0.0.0,suggestqueries.google.com --allow-env --no-check
   GIT_BRANCH: master
   PORT: 8080
 
@@ -24,7 +24,7 @@ tasks:
   build:
     deps: [lint, test]
     cmds:
-      - deno bundle src/egonet.ts dist/egonet.js
+      - deno bundle --unstable src/egonet.ts dist/egonet.js
       - terser --compress --mangle --output dist/egonet.min.js -- dist/egonet.js
     sources:
       - ./src/*.ts
@@ -37,11 +37,11 @@ tasks:
   compile-osx:
     deps: [build]
     cmds:
-      - deno compile --unstable --lite {{.PROD_ARGS}} --target x86_64-apple-darwin --output dist/egonet-x86_64-apple-darwin dist/egonet.min.js
+      - deno compile --lite {{.PROD_ARGS}} --target x86_64-apple-darwin --output dist/egonet-x86_64-apple-darwin dist/egonet.min.js
   compile-linux:
     deps: [build]
     cmds:
-      - deno compile --unstable --lite {{.PROD_ARGS}} --target x86_64-unknown-linux-gnu --output dist/egonet-x86_64-unknown-linux-gnu dist/egonet.min.js
+      - deno compile --lite {{.PROD_ARGS}} --target x86_64-unknown-linux-gnu --output dist/egonet-x86_64-unknown-linux-gnu dist/egonet.min.js
   deploy:
     deps: [compile-linux]
     cmds:
@@ -53,7 +53,7 @@ tasks:
       - read commitMessage && git commit -m "$commitMessage"
       - git push origin {{.GIT_BRANCH}}
   docker-build:
-    deps: [build]
+    deps: [compile-linux]
     cmds:
       - docker build -t egonet .
   docker-run:
