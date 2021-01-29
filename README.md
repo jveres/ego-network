@@ -3,12 +3,13 @@
 
 # ego-network
 
-Deno app for creating an egograph of Google autocomplete results.
-Also includes:
+Deno app for creating an egograph of Google autocomplete results. Also includes:
+
 - in-memory caching,
 - whitelisting.
 
 Available `go-task` scripts:
+
 - `dev` run development server (default)
 - `test` run unit tests
 - `build` build production bundle, uses `terser` form minification
@@ -17,11 +18,13 @@ Available `go-task` scripts:
 - `push` git push to `master` branch
 
 Local testing with `cURL`:
+
 ```sh
 curl -sX GET "http://localhost:8080/?q=javascript" | json_pp
 ```
 
 Sample `json` result:
+
 ```json
 {
     "nodes": [{

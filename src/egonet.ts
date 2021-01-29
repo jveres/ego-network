@@ -29,7 +29,8 @@ class EgoNet {
     return `${options.query}#${options.depth ??
       EgoGraph.DEFAULT_GRAPH_DEPTH}#${options.pattern ??
       EgoGraph.DEFAULT_SEARCH_PATTERN}#${options.radius ??
-      EgoGraph.DEFAULT_GRAPH_RADIUS}`;
+      EgoGraph.DEFAULT_GRAPH_RADIUS}#${options.format ??
+      EgoGraph.DEFAULT_GRAPH_FORMAT}`;
   }
 
   @Concurrency({
@@ -52,7 +53,12 @@ class EgoNet {
   })
   async graph(options: EgoGraphOptions): Promise<string> {
     const ego = new EgoGraph(
-      { query: options.query, depth: options.depth, radius: options.radius },
+      {
+        query: options.query,
+        depth: options.depth,
+        radius: options.radius,
+        format: options.format,
+      },
     );
     await ego.build();
     return JSON.stringify(ego.toObject());
@@ -79,7 +85,10 @@ class EgoNet {
       `public, max-age=${CACHE_EXPIRATION_MS / 1000}`,
     );
     headers.set("Date", new Date().toUTCString());
-    headers.set("Content-Type", "application/json");
+    headers.set(
+      "Content-Type",
+      "application/json",
+    );
     return this.respond(req, {
       status: Status.OK,
       headers,
@@ -134,7 +143,7 @@ class EgoNet {
 
   private diag() {
     console.info(
-      `Deno: ${Colors.brightGreen(Deno.version.deno)} · V8: ${
+      `Denort: ${Colors.brightGreen(Deno.version.deno)} · V8: ${
         Colors.brightGreen(Deno.version.v8)
       } · TypeScript: ${Colors.brightGreen(Deno.version.typescript)}`,
     );
@@ -152,7 +161,9 @@ class EgoNet {
     );
     const osRel = Deno.osRelease();
     console.info(
-      `OS release: ${Colors.bold(osRel)}`,
+      `OS target: ${Colors.bold(Deno.build.target)} · release: ${
+        Colors.bold(osRel)
+      }`,
     );
   }
 
@@ -187,6 +198,7 @@ class EgoNet {
           query: params.get("q") ?? "",
           ...params.get("d") && { depth: Number(params.get("d")) },
           ...params.get("r") && { radius: Number(params.get("r")) },
+          ...params.get("f") && { format: params.get("f") || "json" },
         }, headers)
           .catch(async (e): Promise<void> => { // error handling
             await this.handleError(req, e.message ?? e, headers);

@@ -6,6 +6,7 @@
 
 import { Status } from "https://deno.land/std@0.82.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
+import todot from "https://dev.jspm.io/ngraph.todot";
 import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.4.7/mod.ts";
 
 const FETCH_TIMEOUT_MS = 1000;
@@ -29,17 +30,20 @@ export interface EgoGraphOptions {
   pattern?: string;
   depth?: number;
   radius?: number;
+  format?: string;
 }
 
 export class EgoGraph {
   static readonly DEFAULT_GRAPH_DEPTH: number = 1;
   static readonly DEFAULT_SEARCH_PATTERN: string = " vs ";
   static readonly DEFAULT_GRAPH_RADIUS: number = 10;
+  static readonly DEFAULT_GRAPH_FORMAT: string = "json";
 
-  private readonly query: string;
-  private readonly pattern: string;
-  private readonly depth: number;
-  private readonly radius: number;
+  readonly query: string;
+  readonly pattern: string;
+  readonly depth: number;
+  readonly radius: number;
+  public readonly format: string;
 
   public readonly graph: any;
 
@@ -57,6 +61,7 @@ export class EgoGraph {
     this.depth = options.depth ?? EgoGraph.DEFAULT_GRAPH_DEPTH;
     this.pattern = options.pattern ?? EgoGraph.DEFAULT_SEARCH_PATTERN;
     this.radius = options.radius ?? EgoGraph.DEFAULT_GRAPH_RADIUS;
+    this.format = options.format ?? EgoGraph.DEFAULT_GRAPH_FORMAT;
   }
 
   @Timeout(FETCH_TIMEOUT_MS)
@@ -167,16 +172,16 @@ export class EgoGraph {
 
   /**
    * Creates final object representation of the graph. Should be called after build().
-   * @returns {object} {nodes: [...], links: [...], query, depth, radius, maxWeight, maxDistance, pattern, elapsedMs}
+   * @returns {object} {graph, format, query, depth, radius, maxWeight, maxDistance, pattern, elapsedMs}
    */
   toObject(): { [index: string]: any } {
     let maxWeight = Number.NEGATIVE_INFINITY;
     this.graph.forEachLink((link: any) => {
       if (link.data.weight > maxWeight) maxWeight = link.data.weight;
     });
-    const obj = {
-      nodes: [] as any,
-      links: [] as any,
+    return {
+      graph: this.toString(),
+      format: this.format,
       query: this.query,
       depth: this.depth,
       radius: this.radius,
@@ -185,12 +190,43 @@ export class EgoGraph {
       pattern: this.pattern,
       elapsedMs: this.elapsedMs,
     };
+  }
+
+  /**
+   * Save the graph to string according to the specified format. Should be called after build().
+   * @returns {string}
+   */
+  toString(): string {
+    switch (this.format) {
+      case "json":
+        return this.toJSON();
+      case "dot":
+        return this.toDot();
+      default:
+        throw new Error(`unknown format "${this.format}"`);
+    }
+  }
+
+  /**
+   * Save the graph in simple JSON format: {nodes: [], links: []}. Should be called after build().
+   * @returns {string}
+   */
+  toJSON(): string {
+    const json = { nodes: [] as any[], links: [] as any[] };
     this.graph.forEachNode((node: any) => {
-      obj.nodes.push({ id: node.id, ...node.data });
+      json.nodes.push({ id: node.id, ...node.data });
     });
     this.graph.forEachLink((link: any) => {
-      obj.links.push({ source: link.fromId, target: link.toId, ...link.data });
+      json.links.push({ source: link.fromId, target: link.toId, ...link.data });
     });
-    return obj;
+    return JSON.stringify(json);
+  }
+
+  /**
+   * Save the graph in Dot format. Should be called after build().
+   * @returns {string}
+   */
+  toDot(): string {
+    return (todot as any)(this.graph);
   }
 }
