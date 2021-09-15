@@ -8,8 +8,13 @@ import { Status } from "https://deno.land/std@0.107.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.107.0/fmt/colors.ts";
 import { onSignal } from "https://deno.land/std@0.107.0/signal/mod.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
-import { Concurrency, Memoize, RateLimit, Try } from "../../deno/deco/mod.ts";
-//} from "https://deno.land/x/deco@0.4.9/mod.ts";
+import {
+  Concurrency,
+  Memoize,
+  RateLimit,
+  Try,
+} from "https://deno.land/x/deco@0.5.1/mod.ts";
+// from "../../deno/deco/mod.ts";
 
 const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
@@ -146,6 +151,10 @@ class EgoNet {
         Colors.bold(httpReq.request.url)
       } ${JSON.stringify(metrics)}`,
     );
+    headers.set(
+      "Content-Type",
+      "application/json",
+    );
     return this.respond(
       httpReq,
       new Response(JSON.stringify(metrics), {
@@ -163,6 +172,10 @@ class EgoNet {
       `${httpReq.request.method} ${httpReq.request.url} ${
         Colors.brightYellow("Not acceptable")
       }`,
+    );
+    headers.set(
+      "Content-Type",
+      "application/json",
     );
     return this.respond(
       httpReq,
@@ -183,6 +196,10 @@ class EgoNet {
       `${httpReq.request.method} ${httpReq.request.url} ${
         Colors.brightYellow("Not Found")
       }`,
+    );
+    headers.set(
+      "Content-Type",
+      "application/json",
     );
     return this.respond(
       httpReq,
@@ -207,6 +224,10 @@ class EgoNet {
       `${httpReq.request.method} ${httpReq.request.url} ${
         Colors.brightRed(message)
       }`,
+    );
+    headers.set(
+      "Content-Type",
+      "application/json",
     );
     return this.respond(
       httpReq,
