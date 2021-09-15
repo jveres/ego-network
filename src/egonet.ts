@@ -4,14 +4,10 @@
 
 // deno-lint-ignore-file no-explicit-any
 
-import {
-  Response,
-  serve,
-  ServerRequest,
-} from "https://deno.land/std@0.82.0/http/server.ts";
-import { Status } from "https://deno.land/std@0.82.0/http/http_status.ts";
-import * as Colors from "https://deno.land/std@0.82.0/fmt/colors.ts";
-import { onSignal } from "https://deno.land/std@0.82.0/signal/mod.ts";
+import { listenAndServe } from "https://deno.land/std@0.107.0/http/server.ts";
+import { Status } from "https://deno.land/std@0.107.0/http/http_status.ts";
+import * as Colors from "https://deno.land/std@0.107.0/fmt/colors.ts";
+import { onSignal } from "https://deno.land/std@0.107.0/signal/mod.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 import { Concurrency, Memoize, RateLimit, Try } from "../../deno/deco/mod.ts";
 //} from "https://deno.land/x/deco@0.4.9/mod.ts";
@@ -101,23 +97,17 @@ class EgoNet {
     return JSON.stringify(ego.toObject());
   }
 
-  @Try({
-    catch: ["BrokenPipe"],
-    log: true,
-  })
-  respond(req: ServerRequest, r: Response): Promise<void> {
-    return req.respond(r).finally(() => {
-      connections -= 1;
-    });
-  }
-
   @RateLimit({ rate: MAX_QUERY_RPS })
   async handleQuery(
-    req: ServerRequest,
+    httpReq: Deno.RequestEvent,
     options: EgoGraphOptions,
     headers: Headers,
   ): Promise<void> {
-    console.log(`${Colors.brightGreen(req.method)} ${Colors.bold(req.url)}`);
+    console.log(
+      `${Colors.brightGreen(httpReq.request.method)} ${
+        Colors.bold(httpReq.request.url)
+      }`,
+    );
     if (getCurrentRate === undefined) {
       ({ getCurrentRate } = [...arguments].pop()); // getCurrentRate is injected by @RateLimit
     }
@@ -131,19 +121,19 @@ class EgoNet {
       "Content-Type",
       "application/json",
     );
-    return this.respond(req, {
-      status: Status.OK,
-      headers,
-      body: graph,
-    });
+    return this.respond(
+      httpReq,
+      new Response(graph, {
+        status: Status.OK,
+        headers,
+      }),
+    );
   }
 
-  handleMetrics(req: ServerRequest, headers: Headers): Promise<void> {
-    const reqParams = new URLSearchParams(
-      req.url.slice(1).split("?").slice(-1).join(),
-    );
+  handleMetrics(httpReq: Deno.RequestEvent, headers: Headers): Promise<void> {
+    const reqParams = new URLSearchParams(new URL(httpReq.request.url).search);
     const reqHeaders: any = {};
-    for (const [key, value] of req.headers.entries()) {
+    for (const [key, value] of httpReq.request.headers.entries()) {
       reqHeaders[key] = value;
     }
     const metrics: any = {
@@ -153,60 +143,133 @@ class EgoNet {
       ...reqParams.get("e") && { env: Deno.env.toObject() },
     };
     console.log(
-      `${Colors.brightGreen(req.method)} ${Colors.bold(req.url)} ${
-        JSON.stringify(metrics)
-      }`,
+      `${Colors.brightGreen(httpReq.request.method)} ${
+        Colors.bold(httpReq.request.url)
+      } ${JSON.stringify(metrics)}`,
     );
-    return this.respond(req, {
-      status: Status.OK,
-      headers,
-      body: JSON.stringify(metrics),
-    });
+    return this.respond(
+      httpReq,
+      new Response(JSON.stringify(metrics), {
+        status: Status.OK,
+        headers,
+      }),
+    );
   }
 
   handleNotAcceptable(
-    req: ServerRequest,
+    httpReq: Deno.RequestEvent,
     headers: Headers,
   ): Promise<void> {
     console.error(
-      `${req.method} ${req.url} ${Colors.brightYellow("Not acceptable")}`,
+      `${httpReq.request.method} ${httpReq.request.url} ${
+        Colors.brightYellow("Not acceptable")
+      }`,
     );
-    return this.respond(req, {
-      status: Status.NotAcceptable,
-      headers,
-      body: JSON.stringify({
-        message: "Not Acceptable",
-      }),
-    });
+    return this.respond(
+      httpReq,
+      new Response(
+        JSON.stringify({
+          message: "Not Acceptable",
+        }),
+        {
+          status: Status.NotAcceptable,
+          headers,
+        },
+      ),
+    );
   }
 
-  handleNotFound(req: ServerRequest, headers: Headers): Promise<void> {
+  handleNotFound(httpReq: Deno.RequestEvent, headers: Headers): Promise<void> {
     console.warn(
-      `${req.method} ${req.url} ${Colors.brightYellow("Not Found")}`,
+      `${httpReq.request.method} ${httpReq.request.url} ${
+        Colors.brightYellow("Not Found")
+      }`,
     );
-    return this.respond(req, {
-      status: Status.NotFound,
-      headers,
-      body: JSON.stringify({
-        message: "Request Not Found",
-      }),
-    });
+    return this.respond(
+      httpReq,
+      new Response(
+        JSON.stringify({
+          message: "Request Not Found",
+        }),
+        {
+          status: Status.NotFound,
+          headers,
+        },
+      ),
+    );
   }
 
   handleError(
-    req: ServerRequest,
+    httpReq: Deno.RequestEvent,
     message: string,
     headers: Headers,
   ): Promise<void> {
-    console.error(`${req.method} ${req.url} ${Colors.brightRed(message)}`);
-    return this.respond(req, {
-      status: Status.InternalServerError,
-      headers,
-      body: JSON.stringify({
-        message: "Internal server error",
-        error: Colors.stripColor(message),
-      }),
-    });
+    console.error(
+      `${httpReq.request.method} ${httpReq.request.url} ${
+        Colors.brightRed(message)
+      }`,
+    );
+    return this.respond(
+      httpReq,
+      new Response(
+        JSON.stringify({
+          message: "Internal server error",
+          error: Colors.stripColor(message),
+        }),
+        {
+          status: Status.InternalServerError,
+          headers,
+        },
+      ),
+    );
+  }
+
+  @Try()
+  async respond(httpReq: Deno.RequestEvent, resp: Response): Promise<void> {
+    return httpReq.respondWith(resp);
+  }
+
+  async handleConnection(conn: Deno.Conn) {
+    const httpConn = Deno.serveHttp(conn);
+    for await (const httpReq of httpConn) {
+      const req = httpReq.request;
+      const url = new URL(req.url);
+      const origin = req.headers.get("origin");
+      const headers = new Headers();
+      if (origin && ALLOWED_ORIGINS.includes(origin)) {
+        headers.set("Access-Control-Allow-Origin", origin); // enable CORS
+      }
+      const host = req.headers.get("host") ?? "<unknown>";
+      const params = new URLSearchParams(url.search);
+      if (
+        ![
+          `localhost:${SERVER_PORT}`,
+          `127.0.0.1:${SERVER_PORT}`,
+          `egonet:${SERVER_PORT}`,
+          `egonet.egonet.svc.cluster.local:${SERVER_PORT}`,
+          `host.docker.internal:${SERVER_PORT}`,
+        ].includes(host) && !host.endsWith("127.0.0.1.sslip.io") &&
+        !headers.get("Access-Control-Allow-Origin")
+      ) {
+        this.handleNotAcceptable(httpReq, headers); // not local dev and missing or not allowed origin
+      } else if (
+        req.method === "GET" && url.pathname === "/" && params.get("q")
+      ) { // GET /?q=...
+        this.handleQuery(httpReq, {
+          query: params.get("q") ?? "",
+          ...params.get("d") && { depth: Number(params.get("d")) },
+          ...params.get("r") && { radius: Number(params.get("r")) },
+          ...params.get("f") && { format: params.get("f") || "json" },
+        }, headers)
+          .catch(async (e): Promise<void> => { // error handling
+            await this.handleError(httpReq, e.message ?? e, headers);
+          });
+      } else if (req.method === "GET" && url.pathname === "/metrics") {
+        this.handleMetrics(httpReq, headers);
+      } else {
+        this.handleNotFound(httpReq, headers);
+      }
+    }
   }
 
   private diag() {
@@ -235,54 +298,27 @@ class EgoNet {
     log: true,
   })
   async startServer(): Promise<void> {
-    const server = serve({ hostname: SERVER_HOST, port: Number(SERVER_PORT) });
+    const server = Deno.listen({
+      hostname: SERVER_HOST,
+      port: Number(SERVER_PORT),
+    });
     console.info(
       `${Colors.brightBlue("Server")} is running at ${
         Colors.bold(Colors.underline(SERVER_HOST + ":" + SERVER_PORT))
       }`,
     );
     this.diag();
-    onSignal(Deno.Signal.SIGTERM, () => {
+    onSignal("SIGTERM", () => {
       console.info(
         Colors.bold(`Received ${Colors.brightRed("SIGTERM")}, exiting...`),
       );
       Deno.exit();
     });
-    for await (const req of server) {
-      connections += 1; // number of active connections
-      const origin = req.headers.get("origin");
-      const headers = new Headers();
-      if (origin && ALLOWED_ORIGINS.includes(origin)) {
-        headers.set("Access-Control-Allow-Origin", origin); // enable CORS
-      }
-      const host = req.headers.get("host") ?? "<unknown-host>";
-      const params = new URLSearchParams(req.url.slice(1));
-      if (
-        ![
-          `localhost:${SERVER_PORT}`,
-          `127.0.0.1:${SERVER_PORT}`,
-          `egonet:${SERVER_PORT}`,
-          `egonet.egonet.svc.cluster.local:${SERVER_PORT}`,
-          `host.docker.internal:${SERVER_PORT}`,
-        ].includes(host) && !host.endsWith("127.0.0.1.sslip.io") &&
-        !headers.get("Access-Control-Allow-Origin")
-      ) {
-        this.handleNotAcceptable(req, headers); // not local dev and missing or not allowed origin
-      } else if (req.method === "GET" && params.get("q")) { // GET /?q=...
-        this.handleQuery(req, {
-          query: params.get("q") ?? "",
-          ...params.get("d") && { depth: Number(params.get("d")) },
-          ...params.get("r") && { radius: Number(params.get("r")) },
-          ...params.get("f") && { format: params.get("f") || "json" },
-        }, headers)
-          .catch(async (e): Promise<void> => { // error handling
-            await this.handleError(req, e.message ?? e, headers);
-          });
-      } else if (req.method === "GET" && req.url.startsWith("/metrics")) {
-        this.handleMetrics(req, headers);
-      } else {
-        this.handleNotFound(req, headers);
-      }
+    for await (const conn of server) {
+      connections += 1; // active connections metrics
+      this.handleConnection(conn).finally(() => {
+        connections -= 1;
+      });
     }
   }
 }
