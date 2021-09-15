@@ -1,6 +1,6 @@
 # Make sure $DENO_DIR/dl/{release}/{version}/denort-x86_64-unknown-linux-gnu.zip is stripped
 
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 RUN apt-get update && apt-get -y install binutils
 
 COPY dist/egonet-x86_64-unknown-linux-gnu /usr/local/bin/egonet
