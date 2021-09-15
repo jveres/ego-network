@@ -4,7 +4,6 @@
 
 // deno-lint-ignore-file no-explicit-any
 
-import { listenAndServe } from "https://deno.land/std@0.107.0/http/server.ts";
 import { Status } from "https://deno.land/std@0.107.0/http/http_status.ts";
 import * as Colors from "https://deno.land/std@0.107.0/fmt/colors.ts";
 import { onSignal } from "https://deno.land/std@0.107.0/signal/mod.ts";
@@ -225,11 +224,12 @@ class EgoNet {
   }
 
   @Try()
-  async respond(httpReq: Deno.RequestEvent, resp: Response): Promise<void> {
+  respond(httpReq: Deno.RequestEvent, resp: Response): Promise<void> {
     return httpReq.respondWith(resp);
   }
 
   async handleConnection(conn: Deno.Conn) {
+    connections += 1;
     const httpConn = Deno.serveHttp(conn);
     for await (const httpReq of httpConn) {
       const req = httpReq.request;
@@ -270,6 +270,7 @@ class EgoNet {
         this.handleNotFound(httpReq, headers);
       }
     }
+    connections -= 1;
   }
 
   private diag() {
@@ -315,10 +316,7 @@ class EgoNet {
       Deno.exit();
     });
     for await (const conn of server) {
-      connections += 1; // active connections metrics
-      this.handleConnection(conn).finally(() => {
-        connections -= 1;
-      });
+      this.handleConnection(conn);
     }
   }
 }
