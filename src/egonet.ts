@@ -18,6 +18,9 @@ import {
 
 const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
+const TELEGRAM_NOTIFICATION = Deno.env.get("TELEGRAM_NOTIFICATION");
+const TELEGRAM_CHATID = TELEGRAM_NOTIFICATION?.split("#")[0];
+const TELEGRAM_TOKEN = TELEGRAM_NOTIFICATION?.split("#")[1];
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
 const MAX_QUERY_RPS = 50; // 50 Requests Per Second
@@ -101,6 +104,14 @@ class EgoNet {
     return JSON.stringify(ego.toObject());
   }
 
+  @Try()
+  sendTelegramNotification(text: string) {
+    if (!TELEGRAM_CHATID || !TELEGRAM_TOKEN) return;
+    fetch(
+      `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHATID}&text=${text}`,
+    );
+  }
+
   @RateLimit({ rate: MAX_QUERY_RPS })
   async handleQuery(
     httpReq: Deno.RequestEvent,
@@ -111,6 +122,10 @@ class EgoNet {
       `${Colors.brightGreen(httpReq.request.method)} ${
         Colors.bold(httpReq.request.url)
       }`,
+    );
+    this.sendTelegramNotification(
+      `${httpReq.request.headers.get("host") ??
+        "<unkown host>"} -> ${options.query}`,
     );
     if (getCurrentRate === undefined) {
       ({ getCurrentRate } = [...arguments].pop()); // getCurrentRate is injected by @RateLimit
@@ -273,7 +288,8 @@ class EgoNet {
       ) {
         this.handleNotAcceptable(httpReq, headers); // not local dev and missing or not allowed origin
       } else if (
-        req.method === "GET" && (url.pathname === "/" || url.pathname === "/graph") && params.get("q")
+        req.method === "GET" &&
+        (url.pathname === "/" || url.pathname === "/graph") && params.get("q")
       ) { // GET /?q=... or /graph?q=...
         this.handleQuery(httpReq, {
           query: params.get("q") ?? "",
