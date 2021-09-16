@@ -34,28 +34,28 @@ let getCurrentRate: any = undefined; // function to get current rate for the que
 
   console.log = function () {
     _origConsoleLog.apply(console, [
-      Colors.brightWhite("[L]"),
+      Colors.brightWhite(" • log     "),
       ...arguments,
     ]);
   };
 
   console.info = function () {
     _origConsoleInfo.apply(console, [
-      Colors.brightGreen("[I]"),
+      Colors.brightGreen(" ℹ info    "),
       ...arguments,
     ]);
   };
 
   console.warn = function () {
     _origConsoleWarn.apply(console, [
-      Colors.brightYellow("[W]"),
+      Colors.brightYellow(" ⚠ warning "),
       ...arguments,
     ]);
   };
 
   console.error = function () {
     _origConsoleError.apply(console, [
-      Colors.brightRed("[E]"),
+      Colors.brightRed(" ✖ error   "),
       ...arguments,
     ]);
   };
@@ -120,7 +120,6 @@ class EgoNet {
       "Cache-Control",
       `public, max-age=${CACHE_EXPIRATION_MS / 1000}`,
     );
-    headers.set("Date", new Date().toUTCString());
     headers.set(
       "Content-Type",
       "application/json",
@@ -274,8 +273,8 @@ class EgoNet {
       ) {
         this.handleNotAcceptable(httpReq, headers); // not local dev and missing or not allowed origin
       } else if (
-        req.method === "GET" && url.pathname === "/" && params.get("q")
-      ) { // GET /?q=...
+        req.method === "GET" && (url.pathname === "/" || url.pathname === "/graph") && params.get("q")
+      ) { // GET /?q=... or /graph?q=...
         this.handleQuery(httpReq, {
           query: params.get("q") ?? "",
           ...params.get("d") && { depth: Number(params.get("d")) },
