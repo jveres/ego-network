@@ -12,17 +12,21 @@ import {
   Concurrency,
   Memoize,
   RateLimit,
+  Throttle,
   Try,
-} from "https://deno.land/x/deco@0.5.1/mod.ts";
-// from "../../deno/deco/mod.ts";
+} from "https://deno.land/x/deco@0.5.3/mod.ts";
 
 const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
+
 const TELEGRAM_NOTIFICATION = Deno.env.get("TELEGRAM_NOTIFICATION");
 const TELEGRAM_CHATID = TELEGRAM_NOTIFICATION?.split("#")[0];
 const TELEGRAM_TOKEN = TELEGRAM_NOTIFICATION?.split("#")[1];
+const TELEGRAM_THROTTLING_MS = 60 * 1000; // 1 minute throttling for sending Telegram notification
+
 const ALLOWED_ORIGINS = ["https://ego.jveres.me"];
 const CACHE_EXPIRATION_MS = 12 * 60 * 60 * 1000; // 12 hours
+
 const MAX_QUERY_RPS = 50; // 50 Requests Per Second
 const MAX_QUERY_CONCURRENCY = 1; // concurrency limit for identical requests
 
@@ -105,6 +109,7 @@ class EgoNet {
   }
 
   @Try()
+  @Throttle(TELEGRAM_THROTTLING_MS)
   sendTelegramNotification(text: string) {
     if (!TELEGRAM_CHATID || !TELEGRAM_TOKEN) return;
     fetch(
