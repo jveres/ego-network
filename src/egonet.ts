@@ -130,7 +130,8 @@ class EgoNet {
     );
     this.sendTelegramNotification(
       `${httpReq.request.headers.get("host") ??
-        "<unkown host>"} -> ${options.query}`,
+        "<unknown host>"} (${httpReq.request.headers.get("user-agent") ??
+        "<unknown-user-agent>"}) → "${options.query}"`,
     );
     if (getCurrentRate === undefined) {
       ({ getCurrentRate } = [...arguments].pop()); // getCurrentRate is injected by @RateLimit
@@ -180,6 +181,39 @@ class EgoNet {
         status: Status.OK,
         headers,
       }),
+    );
+  }
+
+  handleOptions(
+    httpReq: Deno.RequestEvent,
+    headers: Headers,
+  ): Promise<void> {
+    console.log(
+      `${Colors.brightBlue(httpReq.request.method)} ${
+        Colors.bold(httpReq.request.url)
+      }`,
+    );
+    headers.set(
+      "access-control-allow-method",
+      httpReq.request.headers.get("access-control-request-method") ?? "",
+    );
+    headers.set(
+      "access-control-allow-headers",
+      httpReq.request.headers.get("access-control-request-headers") ?? "",
+    );
+    headers.set(
+      "access-control-max-age",
+      `${CACHE_EXPIRATION_MS}`,
+    );
+    return this.respond(
+      httpReq,
+      new Response(
+        null,
+        {
+          status: Status.NoContent,
+          headers,
+        },
+      ),
     );
   }
 
@@ -292,6 +326,8 @@ class EgoNet {
         !headers.get("Access-Control-Allow-Origin")
       ) {
         this.handleNotAcceptable(httpReq, headers); // not local dev and missing or not allowed origin
+      } else if (req.method === "OPTIONS") { // CORS pre-flight
+        this.handleOptions(httpReq, headers);
       } else if (
         req.method === "GET" &&
         (url.pathname === "/" || url.pathname === "/graph") && params.get("q")
