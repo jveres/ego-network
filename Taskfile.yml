@@ -4,7 +4,7 @@ version: "3"
 
 vars:
   DEV_ARGS: --unstable -A
-  PROD_ARGS: --unstable --allow-net=0.0.0.0,suggestqueries.google.com --allow-env --no-check
+  PROD_ARGS: --unstable --allow-net=0.0.0.0,suggestqueries.google.com,api.telegram.org --allow-env --no-check
   GIT_BRANCH: master
   PORT: 8080
 
@@ -20,7 +20,7 @@ tasks:
   lint:
     cmds:
       - deno lint --unstable ./src
-      - deno fmt --check ./src 
+      - deno fmt ./src 
   build:
     deps: [lint, test]
     cmds:
@@ -37,11 +37,11 @@ tasks:
   compile-osx:
     deps: [build]
     cmds:
-      - deno compile --lite {{.PROD_ARGS}} --target x86_64-apple-darwin --output dist/egonet-x86_64-apple-darwin dist/egonet.min.js
+      - deno compile {{.PROD_ARGS}} --target x86_64-apple-darwin --output dist/egonet-x86_64-apple-darwin dist/egonet.min.js
   compile-linux:
     deps: [build]
     cmds:
-      - deno compile --lite {{.PROD_ARGS}} --target x86_64-unknown-linux-gnu --output dist/egonet-x86_64-unknown-linux-gnu dist/egonet.min.js
+      - deno compile {{.PROD_ARGS}} --target x86_64-unknown-linux-gnu --output dist/egonet-x86_64-unknown-linux-gnu dist/egonet.min.js
   deploy:
     deps: [compile-linux]
     cmds:

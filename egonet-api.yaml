@@ -1,0 +1,295 @@
+openapi: 3.1.0
+info:
+  title: Egonet backend API
+  version: '1.0'
+  summary: Egonet backend API for building ego graphs around a central topic
+  description: Allows to execute a single query and build an ego graph based on Google autocomplete responses
+  license:
+    name: MIT
+    identifier: MIT
+  contact:
+    name: János Veres
+    email: egonet@jveres.me
+    url: 'https://ego.jveres.me'
+servers:
+  - url: 'http://localhost:8080'
+    description: localhost
+paths:
+  /graph:
+    get:
+      summary: Get ego graph
+      tags: []
+      operationId: get-graph
+      parameters:
+        - $ref: '#/components/parameters/Query-parameter'
+        - $ref: '#/components/parameters/Depth-parameter'
+        - $ref: '#/components/parameters/Radius-parameter'
+        - $ref: '#/components/parameters/Format-parameter'
+      description: Construct an ego graph based on Google automcomplete responses starting from a central query
+      responses:
+        '200':
+          $ref: '#/components/responses/Get-graph-200'
+        '404':
+          $ref: '#/components/responses/Get-graph-404'
+        '500':
+          $ref: '#/components/responses/Get-graph-500'
+  /metrics:
+    get:
+      summary: Get metrics
+      tags: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Get-metrics-200'
+      operationId: get-metrics
+      parameters:
+        - $ref: '#/components/parameters/Headers-parameter'
+        - $ref: '#/components/parameters/Environment-vars-parameter'
+      description: |-
+        Retrieve application metrics:
+        - number of active connections
+        - current rps
+components:
+  schemas:
+    Graph-model:
+      description: ''
+      type: object
+      x-examples:
+        example-1:
+          graph: '{"nodes":[{"id":"javascript","count":1,"depth":0},{"id":"python","count":1,"depth":1},{"id":"typescript","count":1,"depth":1},{"id":"java","count":1,"depth":1},{"id":"jquery","count":1,"depth":1},{"id":"php","count":1,"depth":1},{"id":"html","count":1,"depth":1},{"id":"node.js","count":1,"depth":1},{"id":"c++","count":1,"depth":1},{"id":"react","count":1,"depth":1},{"id":"python speed","count":1,"depth":1}],"links":[{"source":"javascript","target":"python","distance":1,"weight":10,"query":"javascript vs python"},{"source":"javascript","target":"typescript","distance":2,"weight":9,"query":"javascript vs typescript"},{"source":"javascript","target":"java","distance":3,"weight":8,"query":"javascript vs java"},{"source":"javascript","target":"jquery","distance":4,"weight":7,"query":"javascript vs jquery"},{"source":"javascript","target":"php","distance":5,"weight":6,"query":"javascript vs php"},{"source":"javascript","target":"html","distance":6,"weight":5,"query":"javascript vs html"},{"source":"javascript","target":"node.js","distance":7,"weight":4,"query":"javascript vs node.js"},{"source":"javascript","target":"c++","distance":8,"weight":3,"query":"javascript vs c++"},{"source":"javascript","target":"react","distance":9,"weight":2,"query":"javascript vs react"},{"source":"javascript","target":"python speed","distance":10,"weight":1,"query":"javascript vs python speed"}]}'
+          format: json
+          query: javascript
+          depth: 1
+          radius: 10
+          maxWeight: 10
+          maxDistance: 10
+          pattern: ' vs '
+          elapsedMs: 136.01430700000492
+      examples:
+        - graph: '{"nodes":[{"id":"javascript","count":1,"depth":0},{"id":"python","count":1,"depth":1},{"id":"typescript","count":1,"depth":1},{"id":"java","count":1,"depth":1},{"id":"jquery","count":1,"depth":1},{"id":"php","count":1,"depth":1},{"id":"html","count":1,"depth":1},{"id":"node.js","count":1,"depth":1},{"id":"c++","count":1,"depth":1},{"id":"react","count":1,"depth":1},{"id":"python speed","count":1,"depth":1}],"links":[{"source":"javascript","target":"python","distance":1,"weight":10,"query":"javascript vs python"},{"source":"javascript","target":"typescript","distance":2,"weight":9,"query":"javascript vs typescript"},{"source":"javascript","target":"java","distance":3,"weight":8,"query":"javascript vs java"},{"source":"javascript","target":"jquery","distance":4,"weight":7,"query":"javascript vs jquery"},{"source":"javascript","target":"php","distance":5,"weight":6,"query":"javascript vs php"},{"source":"javascript","target":"html","distance":6,"weight":5,"query":"javascript vs html"},{"source":"javascript","target":"node.js","distance":7,"weight":4,"query":"javascript vs node.js"},{"source":"javascript","target":"c++","distance":8,"weight":3,"query":"javascript vs c++"},{"source":"javascript","target":"react","distance":9,"weight":2,"query":"javascript vs react"},{"source":"javascript","target":"python speed","distance":10,"weight":1,"query":"javascript vs python speed"}]}'
+          format: json
+          query: javascript
+          depth: 1
+          radius: 10
+          maxWeight: 10
+          maxDistance: 10
+          pattern: ' vs '
+          elapsedMs: 136.01430700000492
+      title: Graph
+      properties:
+        graph:
+          type: string
+          description: The constructed egograph in the specified format
+          example: '"{\"nodes\":[{\"id\":\"javascript\",\"count\":1,\"depth\":0},{\"id\":\"python\",\"count\":1,\"depth\":1},{\"id\":\"typescript\",\"count\":1,\"depth\":1},{\"id\":\"java\",\"count\":1,\"depth\":1},{\"id\":\"jquery\",\"count\":1,\"depth\":1},{\"id\":\"php\",\"count\":1,\"depth\":1},{\"id\":\"html\",\"count\":1,\"depth\":1},{\"id\":\"node.js\",\"count\":1,\"depth\":1},{\"id\":\"c++\",\"count\":1,\"depth\":1},{\"id\":\"react\",\"count\":1,\"depth\":1},{\"id\":\"python speed\",\"count\":1,\"depth\":1}],\"links\":[{\"source\":\"javascript\",\"target\":\"python\",\"distance\":1,\"weight\":10,\"query\":\"javascript vs python\"},{\"source\":\"javascript\",\"target\":\"typescript\",\"distance\":2,\"weight\":9,\"query\":\"javascript vs typescript\"},{\"source\":\"javascript\",\"target\":\"java\",\"distance\":3,\"weight\":8,\"query\":\"javascript vs java\"},{\"source\":\"javascript\",\"target\":\"jquery\",\"distance\":4,\"weight\":7,\"query\":\"javascript vs jquery\"},{\"source\":\"javascript\",\"target\":\"php\",\"distance\":5,\"weight\":6,\"query\":\"javascript vs php\"},{\"source\":\"javascript\",\"target\":\"html\",\"distance\":6,\"weight\":5,\"query\":\"javascript vs html\"},{\"source\":\"javascript\",\"target\":\"node.js\",\"distance\":7,\"weight\":4,\"query\":\"javascript vs node.js\"},{\"source\":\"javascript\",\"target\":\"c++\",\"distance\":8,\"weight\":3,\"query\":\"javascript vs c++\"},{\"source\":\"javascript\",\"target\":\"react\",\"distance\":9,\"weight\":2,\"query\":\"javascript vs react\"},{\"source\":\"javascript\",\"target\":\"python speed\",\"distance\":10,\"weight\":1,\"query\":\"javascript vs python speed\"}]}"'
+          readOnly: true
+        query:
+          type: string
+          example: javascript
+          description: Query passed for the graph builder
+          readOnly: true
+        depth:
+          type: integer
+          example: 1
+          description: Depth speficied in the graph query
+          minimum: 1
+          readOnly: true
+        radius:
+          type: integer
+          example: 10
+          description: Radius specified in the graph query
+          minimum: 1
+          readOnly: true
+        maxWeight:
+          type: integer
+          example: 10
+          description: Maximum egde weight measured during the construction of the graph
+          minimum: 0
+          readOnly: true
+        maxDistance:
+          type: integer
+          example: 10
+          description: Maximum node distance measured during the construction of the graph
+          minimum: 0
+          readOnly: true
+        format:
+          type: string
+          enum:
+            - json
+            - dot
+          description: Graph format specifier
+          readOnly: true
+        pattern:
+          type: string
+          example: ' vs '
+          description: String pattern used for constructing the Google autocomplete query
+          readOnly: true
+        elapsedMs:
+          type: number
+          example: 136.01430700000492
+          description: Duration of the query in milliseconds
+          minimum: 0
+          readOnly: true
+      required:
+        - graph
+        - query
+        - depth
+        - radius
+        - maxWeight
+        - maxDistance
+        - format
+        - pattern
+        - elapsedMs
+    Metrics-model:
+      title: Metrics
+      type: object
+      examples:
+        - connections: 1
+          rps: 1
+      properties:
+        connections:
+          type: integer
+          example: 1
+          minimum: 1
+          readOnly: true
+        rps:
+          type: integer
+          example: 1
+          minimum: 0
+          readOnly: true
+        headers:
+          type: object
+          readOnly: true
+        env:
+          type: object
+          readOnly: true
+      required:
+        - connections
+        - rps
+  parameters:
+    Query-parameter:
+      name: q
+      in: query
+      required: true
+      schema:
+        type: string
+        example: javascript
+      description: Google autocomplete query string
+    Depth-parameter:
+      name: d
+      in: query
+      required: false
+      schema:
+        type: integer
+        example: 1
+        minimum: 1
+      description: Graph construction depth parameter
+    Radius-parameter:
+      name: r
+      in: query
+      required: false
+      schema:
+        type: integer
+        example: 10
+        minimum: 1
+      description: Graph construction radius
+    Format-parameter:
+      name: f
+      in: query
+      required: false
+      schema:
+        type: string
+        enum:
+          - json
+          - dot
+        example: json
+      description: Graph format specifier
+    Headers-parameter:
+      name: h
+      in: query
+      required: false
+      schema:
+        example: '1'
+      description: Attach request headers to the response
+    Environment-vars-parameter:
+      name: e
+      in: query
+      required: false
+      schema:
+        example: '1'
+      description: Attach environment variables to the response
+  examples: {}
+  responses:
+    Get-graph-200:
+      description: Example response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Graph-model'
+          examples: {}
+      headers:
+        cache-control:
+          schema:
+            type: string
+            example: 'public, max-age=43200'
+          description: Instruct the  browser to cache responses for 12 hours
+    Get-metrics-200:
+      description: Example response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Metrics-model'
+          examples:
+            Example:
+              value:
+                connections: 1
+                rps: 1
+    Get-graph-404:
+      description: Example response
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            x-examples:
+              example-1:
+                message: Request Not Found
+            properties:
+              message:
+                type: string
+                example: Request Not Found
+                readOnly: true
+            required:
+              - message
+          examples:
+            Example:
+              value:
+                message: Request Not Found
+    Get-graph-500:
+      description: Example response
+      content:
+        application/json:
+          schema:
+            description: ''
+            type: object
+            x-examples:
+              example-1:
+                message: Internal server error
+                error: Timeout (10000ms) exceeded for build(…)
+            properties:
+              message:
+                type: string
+                example: Internal server error
+                readOnly: true
+              error:
+                type: string
+                example: Timeout (10000ms) exceeded for build(…)
+                readOnly: true
+            required:
+              - message
+              - error
+          examples:
+            Example:
+              value:
+                message: Internal server error
+                error: Timeout (10000ms) exceeded for build(…)
+  securitySchemes: {}
+security: []

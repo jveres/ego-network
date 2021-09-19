@@ -4,12 +4,12 @@
 
 // deno-lint-ignore-file no-explicit-any
 
-import { Status } from "https://deno.land/std@0.82.0/http/http_status.ts";
+import { Status } from "https://deno.land/std@0.107.0/http/http_status.ts";
 import createGraph from "https://dev.jspm.io/ngraph.graph";
 import todot from "https://dev.jspm.io/ngraph.todot";
-import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.4.7/mod.ts";
+import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.5.1/mod.ts";
 
-const FETCH_TIMEOUT_MS = 1000;
+const FETCH_TIMEOUT_MS = 5000;
 const FETCH_MAX_ATTEMPTS = 3;
 const BUILD_TIMEOUT_MS = 10000;
 
@@ -69,13 +69,14 @@ export class EgoGraph {
   private async fetchAutocomplete(
     term: string,
     maxCount: number,
+    signal: AbortSignal,
   ): Promise<Set<string>> {
     const q = term + this.pattern;
     const res = await fetch(
       `http://suggestqueries.google.com/complete/search?&client=firefox&gl=us&hl=en&q=${
         encodeURIComponent(q)
       }`,
-      fetchHeader,
+      { ...fetchHeader, signal },
     );
     if (res.status === Status.OK) {
       const hits = await res.json();
@@ -102,6 +103,7 @@ export class EgoGraph {
   async build() {
     if (this.query === "") return;
     const t1 = performance.now();
+    const { abortController } = [...arguments].pop(); // AbortController injected by @Timeout
     this.graph.beginUpdate();
     let sources: string[] = [this.query];
     let distances: number[] = [0];
@@ -115,6 +117,7 @@ export class EgoGraph {
         const targets = await this.fetchAutocomplete(
           src,
           this.radius - srcDistance,
+          abortController.signal,
         );
         if (!this.graph.getNode(src)) {
           this.graph.addNode(src, {
