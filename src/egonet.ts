@@ -14,7 +14,7 @@ import {
   RateLimit,
   Throttle,
   Try,
-} from "https://deno.land/x/deco@0.5.3/mod.ts";
+} from "https://deno.land/x/deco@0.5.4/mod.ts";
 
 const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";

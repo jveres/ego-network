@@ -5,6 +5,12 @@
         "https://deno.land": true
     },
     "deno.suggest.imports.hosts": {
-        "https://deno.land": false
+        "https://deno.land": false,
+        "https://dev.jspm.io": false,
+        "https://e": false,
+        "https://esm": false,
+        "https://esm.": false,
+        "https://esm.s": false,
+        "https://cdn.skypack.dev": false
     }
 }
