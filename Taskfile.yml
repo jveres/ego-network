@@ -3,7 +3,7 @@
 version: "3"
 
 vars:
-  DEV_ARGS: --unstable -A
+  DEV_ARGS: --unstable --allow-net=0.0.0.0,suggestqueries.google.com,api.telegram.org --allow-env
   PROD_ARGS: --unstable --allow-net=0.0.0.0,suggestqueries.google.com,api.telegram.org --allow-env --no-check
   GIT_BRANCH: master
   PORT: 8080

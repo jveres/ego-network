@@ -5,7 +5,7 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { Status } from "https://deno.land/std@0.107.0/http/http_status.ts";
-import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.5.4/mod.ts";
+import { Retry, Timeout, Trace } from "https://deno.land/x/deco@0.5.5/mod.ts";
 import createGraph from "https://cdn.skypack.dev/pin/ngraph.graph@v19.1.0-hbXlJ5jXNBZv8rnHhSe5/mode=imports,min/optimized/ngraph.graph.js";
 import todot from "https://cdn.skypack.dev/pin/ngraph.todot@v3.0.2-1US6T7uguHfvYlpp9eVI/mode=imports,min/optimized/ngraph.todot.js";
 

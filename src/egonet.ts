@@ -4,17 +4,18 @@
 
 // deno-lint-ignore-file no-explicit-any
 
-import { Status } from "https://deno.land/std@0.107.0/http/http_status.ts";
-import * as Colors from "https://deno.land/std@0.107.0/fmt/colors.ts";
-import { onSignal } from "https://deno.land/std@0.107.0/signal/mod.ts";
+import { Status } from "https://deno.land/std@0.108.0/http/http_status.ts";
+import * as Colors from "https://deno.land/std@0.108.0/fmt/colors.ts";
+import { onSignal } from "https://deno.land/std@0.108.0/signal/mod.ts";
 import { EgoGraph, EgoGraphOptions } from "./egograph.ts";
 import {
   Concurrency,
+  consoleLogHook,
   Memoize,
   RateLimit,
   Throttle,
   Try,
-} from "https://deno.land/x/deco@0.5.4/mod.ts";
+} from "https://deno.land/x/deco@0.5.5/mod.ts";
 
 const SERVER_HOST = Deno.env.get("HOST") ?? "0.0.0.0";
 const SERVER_PORT = Deno.env.get("PORT") ?? "8080";
@@ -32,41 +33,6 @@ const MAX_QUERY_CONCURRENCY = 1; // concurrency limit for identical requests
 
 let connections = 0; // number of all active tcp connections
 let getCurrentRate: any = undefined; // function to get current rate for the query endpoint
-
-(function hookForConsoleLogs() {
-  const _origConsoleLog = console.log;
-  const _origConsoleInfo = console.info;
-  const _origConsoleWarn = console.warn;
-  const _origConsoleError = console.error;
-
-  console.log = function () {
-    _origConsoleLog.apply(console, [
-      Colors.brightWhite(" • log     "),
-      ...arguments,
-    ]);
-  };
-
-  console.info = function () {
-    _origConsoleInfo.apply(console, [
-      Colors.brightGreen(" ℹ info    "),
-      ...arguments,
-    ]);
-  };
-
-  console.warn = function () {
-    _origConsoleWarn.apply(console, [
-      Colors.brightYellow(" ⚠ warning "),
-      ...arguments,
-    ]);
-  };
-
-  console.error = function () {
-    _origConsoleError.apply(console, [
-      Colors.brightRed(" ✖ error   "),
-      ...arguments,
-    ]);
-  };
-})();
 
 class EgoNet {
   private static _keyFromOptions(options: EgoGraphOptions): string {
@@ -398,4 +364,13 @@ class EgoNet {
   }
 }
 
+// Config global log prefixes
+consoleLogHook({
+  logPrefix: Colors.rgb24(" • log     ", 0xffffff),
+  infoPrefix: Colors.rgb24(" ℹ info    ", 0xabdcfb),
+  warnPrefix: Colors.rgb24(" ⚠ warning ", 0xff8c00),
+  errorPrefix: Colors.rgb24(" ✖ error   ", 0xff0000),
+});
+
+// Start HTTP server listener
 new EgoNet().startServer();
